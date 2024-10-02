@@ -7,6 +7,7 @@ pub struct City {
 	pub name: Option<String>,
 	pub abbreviation: Option<String>,
 	pub coords: Option<String>,
+	pub order_number: Option<String>,
 	pub is_active: Option<String>,
 }
 
@@ -24,5 +25,6 @@ pub struct FilteredCity {
 	pub name: Option<String>,
 	pub abbreviation: Option<String>,
 	pub coords: Option<String>,
+	pub order_number: Option<String>,
 	pub is_active: Option<String>,
 }

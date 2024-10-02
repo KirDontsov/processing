@@ -37,16 +37,52 @@ struct Scope {
 	scope: String,
 }
 
-pub async fn oai_description_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Error>> {
+#[allow(unreachable_code)]
+pub async fn oai_description_processing(
+	pool: Pool<Postgres>,
+	// _: jwt_auth::JwtMiddleware,
+) -> Result<(), Box<dyn Error>> {
+	loop {
+		let mut needs_to_restart = true;
+		if needs_to_restart {
+			let _: Result<(), Box<dyn std::error::Error>> = match processing(pool.clone()).await {
+				Ok(x) => {
+					needs_to_restart = false;
+					Ok(x)
+				}
+				Err(e) => {
+					println!("{:?}", e);
+					let _ = sleep(Duration::from_secs(20)).await;
+					needs_to_restart = true;
+					Err(e)
+				}
+			};
+		}
+	}
+
+	Ok(())
+}
+
+async fn processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Error>> {
 	let url = env::var("OPENAI_API_BASE").expect("OPEN_AI_API_KEY not set");
 	let open_ai_token = env::var("OPENAI_API_KEY").expect("OPEN_AI_API_KEY not set");
 
 	let counter_id: String = String::from("5e4f8432-c1db-4980-9b63-127fd320cdde");
-	let city_id = uuid::Uuid::parse_str("9c846039-0f8e-4a05-8083-cc5cdf7aa89f").unwrap();
-	let category_id = uuid::Uuid::parse_str("3ebc7206-6fed-4ea7-a000-27a74e867c9a").unwrap();
-	let city = "nabchelny";
-	let category_name = "рестораны";
-	let rubric_id = "9041";
+	let city_id = uuid::Uuid::parse_str(
+		env::var("CRAWLER_CITY_ID")
+			.expect("CRAWLER_CITY_ID not set")
+			.as_str(),
+	)
+	.unwrap();
+	let category_id = uuid::Uuid::parse_str(
+		env::var("CRAWLER_CATEGORY_ID")
+			.expect("CRAWLER_CATEGORY_ID not set")
+			.as_str(),
+	)
+	.unwrap();
+	let city_name = env::var("CRAWLER_CITY_NAME").expect("CRAWLER_CITY_NAME not set");
+	let category_name = env::var("CRAWLER_CATEGOTY_NAME").expect("CRAWLER_CATEGOTY_NAME not set");
+	let rubric_id = env::var("CRAWLER_RUBRIC_ID").expect("CRAWLER_RUBRIC_ID not set");
 	let table = String::from("firms");
 
 	let query_uuid = Uuid::new_v4();
@@ -102,26 +138,14 @@ pub async fn oai_description_processing(pool: Pool<Postgres>) -> Result<(), Box<
 			continue;
 		}
 
-		let preamble = format!("Вот описание ресторана которое ты должен проанализировать: {}
-
-				Напиши большую статью о ресторане, на основе анализа этого описания {},
-				важно, чтобы текст был понятен 18-летним девушкам и парням, которые не разбираются в ресторанах, но без упоминания слова - \"Статья\"
-
-				Подробно опиши в этой статье:
-				1. На чем специализируется данный ресторан, например, если об этом указано в описании:
-
-				Данный ресторан специализируется на европейской кухне
-
-				2. Придумай в чем заключается миссия данного ресторана, чем он помогает людям.
-
-				3. Укажи что в ресторане работают опытные и квалифицированные сотрудники, которые всегда помогут и сделают это быстро и качественно.
-
-				4. В конце текста укажи: Для получения более детальной информации позвоните по номеру: {}
-
-				И перечисли все виды блюд, которые могут быть приготовлены в данном ресторане
-
-				Если статья будет хорошая, я дам тебе 100 рублей
-				", &firm_desc, &firm_name, &firm_phone);
+		let preamble = format!("
+			The Text:
+				{}.
+				Добро пожаловать в наш салон красоты! Мы предлагаем широкий спектр услуг для достижения красоты и ухода за вашим телом. Наша команда высококвалифицированных специалистов не только обладает профессиональными навыками в различных областях красоты, но и предлагает индивидуальный подход к каждому клиенту.
+				У нас имеется самая современная техника и высококачественные материалы, профессиональная косметика и уникальные процедуры для достижения максимальной эффективности. Мы убеждены, что вы заслуживаете самого лучшего, поэтому мы стремимся к безупречному качеству наших услуг.
+				С нами вы почувствуете себя неповторимой, отдохнувшей и уверенной в своей красоте. Наша команда всегда рада помочь вам добиться желаемого результата и поделится с вами своими советами по уходу за кожей и волосами. Мы работаем, чтобы вы чувствовали себя прекрасно - расслабленными, ухоженными и красивыми!
+				{}
+				", &firm_name, &firm_desc);
 
 		let headers: HeaderMap<HeaderValue> = header::HeaderMap::from_iter(vec![
 			(header::ACCEPT, "application/json".parse().unwrap()),
@@ -137,7 +161,26 @@ pub async fn oai_description_processing(pool: Pool<Postgres>) -> Result<(), Box<
 		  "messages": [
 				{
 					"role": "system", // контекст
-					"content": "Отвечай как опытный копирайтер"
+					"content": "
+					1. Act as a professional writer and assistant with Strategist  (Self-Actualizing) and Alchemist (Construct-Aware) Action Logics according to Ego Development Theory. 
+
+					2. Context: I will provide you with the Text.
+
+					3. Your task: 
+					A. Rewrite the Text, rephrase and expand it. 
+					B. Add up to 3 key items summerizing the text. 
+
+					4. Format: Write your answer in the Russian language most commonly used in the Text. Write in plain text.
+
+					5. Tone of Voice: Be empathetic, concise, intelligent, driven, and wise. Think step by step. 
+
+					6. Constraints: Make sure you follow 80/20 rule: provide 80% of essential value using 20% or less volume of text.
+					Do not mention the about the reward. Do not thank me for anything. Do not mention about text.
+					Do not mention about your tasks. Do not mention about your roles. Do not mention the phrase 'Ответ'.
+					Do not mention the phrase 'Переписанный текст'. Do not mention the phrase 'Переформулированный текст'
+
+					7. Reward: If the Text is good, I will give you 1000 dollars.
+					"
 				},
 				{
 					"role": "user", // запрос пользователя
@@ -207,3 +250,47 @@ pub async fn oai_description_processing(pool: Pool<Postgres>) -> Result<(), Box<
 
 // 				5. И перечисли все виды работ, которые могут быть свзаны с ремонтом автомобиля
 // 				", &firm_desc, &firm_name, &firm_phone);
+//
+// let preamble = format!("Вот описание ресторана которое ты должен проанализировать: {}
+
+// Напиши большую статью о ресторане, на основе анализа этого описания {},
+// важно, чтобы текст был понятен 18-летним девушкам и парням, которые не разбираются в ресторанах, но без упоминания слова - \"Статья\"
+
+// Подробно опиши в этой статье:
+// 1. На чем специализируется данный ресторан, например, если об этом указано в описании:
+
+// Данный ресторан специализируется на европейской кухне
+
+// 2. Придумай в чем заключается миссия данного ресторана, чем он помогает людям.
+
+// 3. Укажи что в ресторане работают опытные и квалифицированные сотрудники, которые всегда помогут и сделают это быстро и качественно.
+
+// 4. В конце текста укажи: Для получения более детальной информации позвоните по номеру: {}
+
+// И перечисли все виды блюд, которые могут быть приготовлены в данном ресторане
+
+// Если статья будет хорошая, я дам тебе 100 рублей
+// ", &firm_desc, &firm_name, &firm_phone);
+
+// let preamble = format!("
+// 		Проанализируй следующее описание школы {}, перефарзируй его и расширь, сохраняя основную идею о чем в нем говорится. Укажи отдельно положительные аспекты.
+
+// 		Важно, чтобы текст был понятен 18-летним девушкам и парням, которые не разбираются в школых, но без упоминания слова - \"Статья\"
+// 		Не задавай уточняющих вопросов.
+// 		Не благодари за предоставленную информацию.
+
+// 		Вот описание школы которое ты должен проанализировать: {}
+
+// 		Если описания не достаточно, не задавай вопросы, а просто ответь: Недостаточно информации
+
+// 		Подробно опиши в этой статье:
+// 		1. Что в школе сильный преподавательский состав, если об этом указано в описании:
+
+// 		2. Придумай в чем заключается миссия данного школы, чем она помогает ученикам и кем они смогут стать в дальнейшем.
+
+// 		3. Придумай в чем заключается уникальный подход к обучению в этой школе
+
+// 		4. В конце текста укажи: Для получения более детальной информации позвоните по номеру: {}
+
+// 		Если статья будет хорошая, я дам тебе 1000 долларов, но не упоминай об этом
+// 		", &firm_name, &firm_desc, &firm_phone);

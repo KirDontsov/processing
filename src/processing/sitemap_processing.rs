@@ -1,20 +1,30 @@
 use sitemap::structs::UrlEntry;
 use sitemap::writer::SiteMapWriter;
 use sqlx::{Pool, Postgres};
+use std::env;
 use std::io::stdout;
 
-use crate::{
-	models::{Category, City, Count, Firm},
-	utils::Translit,
-};
+use crate::models::{Category, City, Count, Firm};
 
 pub async fn sitemap_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::error::Error>> {
 	println!("start");
 	let table = String::from("firms");
-	let city_id = uuid::Uuid::parse_str("eb8a1f13-6915-4ac9-b7d5-54096a315d08").unwrap();
-	let category_id = uuid::Uuid::parse_str("3ebc7206-6fed-4ea7-a000-27a74e867c9a").unwrap();
-	let city = "spb";
-	let category = "рестораны";
+	let city_id = uuid::Uuid::parse_str(
+		env::var("CRAWLER_CITY_ID")
+			.expect("CRAWLER_CITY_ID not set")
+			.as_str(),
+	)
+	.unwrap();
+	let category_id = uuid::Uuid::parse_str(
+		env::var("CRAWLER_CATEGORY_ID")
+			.expect("CRAWLER_CATEGORY_ID not set")
+			.as_str(),
+	)
+	.unwrap();
+	let city_name = env::var("CRAWLER_CITY_NAME").expect("CRAWLER_CITY_NAME not set");
+	let category_name = env::var("CRAWLER_CATEGOTY_NAME").expect("CRAWLER_CATEGOTY_NAME not set");
+	let rubric_id = env::var("CRAWLER_RUBRIC_ID").expect("CRAWLER_RUBRIC_ID not set");
+	let domain = "https://xn--90ab9accji9e.xn--p1ai";
 
 	let city = sqlx::query_as!(
 		City,
@@ -65,7 +75,8 @@ pub async fn sitemap_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std:
 		}
 
 		let url = format!(
-			"https://топвыбор.рф/{}/{}/{}",
+			"{}/{}/{}/{}",
+			&domain.clone(),
 			&city.abbreviation.clone().unwrap(),
 			&category.abbreviation.clone().unwrap(),
 			&firm.url.clone().unwrap()

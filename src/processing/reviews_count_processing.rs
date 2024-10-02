@@ -1,5 +1,5 @@
 use crate::models::{Count, Firm};
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use sqlx::{Pool, Postgres};
 
 pub async fn reviews_count_processing(
 	pool: Pool<Postgres>,
