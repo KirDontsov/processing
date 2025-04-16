@@ -23,29 +23,30 @@ pub async fn urls_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::er
 	.unwrap();
 
 	let firms_count =
-		Count::count_firms_by_city_category(&pool, table.clone(), city_id, category_id)
+		Count::count_firms_with_empty_field(&pool, table.clone(), "url".to_string())
 			.await
 			.unwrap_or(0);
 
 	for j in 0..=firms_count {
 		println!("№ {}", &j);
-		// let firm = Firm::get_firm_with_empty_field(&pool, table.clone(), "url".to_string(), j)
-		// 	.await
-		// 	.unwrap();
-
-		let firm = Firm::get_firm_by_city_category(&pool, table.clone(), city_id, category_id, j)
+		let firm = Firm::get_firm_with_empty_field(&pool, table.clone(), "url".to_string(), j)
 			.await
 			.unwrap();
 
-		// if firm.url.clone().is_some() {
-		// 	continue;
-		// }
+		// let firm = Firm::get_firm_by_city_category(&pool, table.clone(), city_id, category_id, j)
+		// 	.await
+		// 	.unwrap();
+
+		if firm.url.clone().is_some() {
+			continue;
+		}
 
 		let translit_name = Translit::convert(firm.name.clone());
 		let firm_address = firm.address.clone().unwrap_or("".to_string());
 		let firm_street = firm_address.split(",").collect::<Vec<&str>>()[0].to_string();
+		let firm_house = firm_address.split(",").collect::<Vec<&str>>()[1].to_string();
 		let translit_address = if firm_address != "" {
-			Translit::convert(Some(firm_street))
+			Translit::convert(Some(format!("{}-{}", firm_street, firm_house)))
 		} else {
 			firm.firm_id.clone().to_string()
 		};
@@ -57,7 +58,7 @@ pub async fn urls_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::er
 			.fetch_all(&pool)
 			.await?;
 
-		if firms_double_urls.len() > 1 {
+		if firms_double_urls.len() > 0 {
 			firm_url = format!(
 				"{}-{}-{}",
 				&translit_name,
@@ -77,15 +78,16 @@ pub async fn urls_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::er
 				.replace(",", "-")
 				.replace(".", "-")
 				.replace("`", "")
-				.replace("--", "-")
 				.replace("/", "-")
 				.replace("&amp;", "&")
+				.replace("--", "-")
 				.as_str()),
 		)
 		.bind(firm.firm_id)
 		.fetch_one(&pool)
 		.await;
 
+		dbg!(&firm.firm_id.clone());
 		dbg!(&firm_url);
 	}
 

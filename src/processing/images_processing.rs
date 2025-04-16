@@ -11,7 +11,7 @@ use glob::glob;
 
 pub async fn images_processing() -> Result<(), Box<dyn std::error::Error>> {
 	println!("start");
-	for entry in glob("output/images/**/*.png")? {
+	for entry in glob("output/images/**/*.jpg")? {
 		match entry {
 			Ok(path) => {
 				println!("{}", path.display());
@@ -30,7 +30,7 @@ pub async fn images_processing() -> Result<(), Box<dyn std::error::Error>> {
 				darken_hsl(&mut cropped_img, 0.1_f32);
 				box_blur(&mut cropped_img);
 
-				watermark(&mut img, &cropped_img, width - 120_u32, height - 60_u32);
+				watermark(&mut img, &cropped_img, (width - 120_u32).into(), (height - 60_u32).into());
 				save_image(img, path.to_str().unwrap()).expect("File should be saved");
 			}
 			Err(e) => {

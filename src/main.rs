@@ -8,7 +8,7 @@ mod utils;
 use config::Config;
 use dotenv::dotenv;
 use oai_processing::{
-	oai_description_processing, oai_reviews_processing, oai_reviews_rewrite_processing,
+	oai_description_processing, oai_reviews_processing, oai_reviews_rewrite_processing, oai_pages_processing
 };
 use processing::{
 	images_processing, reviews_count_processing, sitemap_processing, urls_processing,
@@ -63,6 +63,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		"description" => oai_description_processing(pool.clone()).await?,
 		"reviews" => oai_reviews_processing(pool.clone()).await?,
 		"reviews_rewrite" => oai_reviews_rewrite_processing(pool.clone()).await?,
+		"pages" => oai_pages_processing(pool.clone()).await?,
 		_ => println!("error in env (no such handler)!"),
 	}
 

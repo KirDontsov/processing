@@ -149,7 +149,7 @@ pub async fn oai_reviews_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn 
 					– Good and experienced professionals - If they say so in the reviews
 					– Cleanliness - If they say so in the reviews:
 					Cons:
-					– Old seats - If they say so in the reviews
+					– Old flowers - If they say so in the reviews
 					– Foreign odors - If they say so in the reviews
 					C. Count and output in an unnumbered list the sum of positive and the sum of negative reviews that you analyzed.
 					For example:
@@ -159,7 +159,7 @@ pub async fn oai_reviews_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn 
 					If the the text contains more positive reviews, indicate that the company  rating is good, and explain why.
 					Or if the text contains an equal number of positive and negative reviews, indicate that the company rating is satisfactory, and explain why.
 					Or if the text contains more negative reviews, indicate that the company rating is unsatisfactory, and explain why.
-					4. Format: Write your answer in the Russian language most commonly used in the Text. Write in plain text.
+					4. Format: Write your answer ONLY in Russian language most commonly used in the Text. Write in plain text.
 					5. Tone of Voice: Be empathetic, concise, intelligent, driven, and wise. Think step by step.
 					6. Constraints: Make sure you follow 80/20 rule: provide 80% of essential value using 20% or less volume of text. Do not mention about the reward.
 					Do not thank me for anything. Do not mention about text. Do not mention about your tasks. Do not mention about your roles.
@@ -230,6 +230,8 @@ pub async fn oai_reviews_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn 
 			SaveCounter {
 				counter_id: Uuid::parse_str(&counter_id).unwrap(),
 				value: (j + 1).to_string(),
+				city_id: city_id.to_string(),
+				category_id: category_id.to_string()
 			},
 		)
 		.await;

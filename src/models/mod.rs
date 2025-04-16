@@ -6,8 +6,11 @@ pub mod count;
 pub mod counter;
 pub mod firm;
 pub mod review;
+pub mod bestlight_cases;
+pub mod pages;
 
 pub use self::ai_description::*;
+pub use self::pages::*;
 pub use self::ai_review::*;
 pub use self::categories::*;
 pub use self::cities::*;
@@ -15,3 +18,4 @@ pub use self::count::*;
 pub use self::counter::*;
 pub use self::firm::*;
 pub use self::review::*;
+pub use self::bestlight_cases::*;

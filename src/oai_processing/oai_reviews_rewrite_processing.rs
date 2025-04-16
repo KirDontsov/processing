@@ -16,7 +16,7 @@ struct AccessToken {
 
 #[derive(Debug, Deserialize, Serialize)]
 struct ApiResponse {
-	choices: Vec<Choice>,
+	message: Message,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -131,14 +131,15 @@ pub async fn oai_reviews_rewrite_processing(pool: Pool<Postgres>) -> Result<(), 
 			let headers: HeaderMap<HeaderValue> = header::HeaderMap::from_iter(vec![
 				(header::ACCEPT, "application/json".parse().unwrap()),
 				(header::CONTENT_TYPE, "application/json".parse().unwrap()),
-				(
-					header::AUTHORIZATION,
-					format!("Bearer {}", open_ai_token).parse().unwrap(),
-				),
+				// (
+				// 	header::AUTHORIZATION,
+				// 	format!("Bearer {}", open_ai_token).parse().unwrap(),
+				// ),
 			]);
 
 			let body = json!({
-			  "model": "gpt-3.5-turbo", // идентификатор модели, можно указать конкретную или :latest  для выбора наиболее актуальной
+			  "model": "qwen2.5:14b",
+				"stream": false,
 			  "messages": [
 					{
 						"role": "system", // контекст
@@ -150,18 +151,18 @@ pub async fn oai_reviews_rewrite_processing(pool: Pool<Postgres>) -> Result<(), 
 						3. Your task: 
 						A. Rewrite the Review Text, but keep it close to the original one.
 
-						4. Format: Write your answer in the Russian language. Write in plain text. Keep the meaning and write from the same person as in the Review text. Write in the first person and preserve the speaker's gender. Try to write as a woman.
+						4. Format: Write your answer only in the Russian language. Write in plain text. Keep the meaning and write from the same person as in the Review text. Write in the first person and preserve the speaker's gender. Try to write as a man.
 
 						5. Tone of Voice: Be empathetic, concise, intelligent, driven, and wise. Think step by step. 
 
-						6. Constraints: Make sure you follow 80/20 rule: provide 80% of essential value using 20% or less volume of text.
-						Do not mention the about the reward. Do not thank me for anything. Do not mention about text.
-						Do not mention about your tasks. Do not mention about your roles. Do not say the phrase 'Ответ'.
-						Do not say the phrase 'Переписанный текст'. Do not say the phrase 'Переформулированный текст'. Do not say the phrase 'Rewritten Text'
-						Do not say the phrase 'Я прочитал твой отзыв'. Do not say the phrase 'Отзыв'. Don't say that you are happy. Do not say the phrase 'Описание'. Do not say the phrase 'Мнение'.
-						Do not say the phrase 'понял ваш запрос'. Do not say the phrase 'переписать ваш отзыв'.
-						Do not say the phrase 'Конечно, я могу помочь вам с этим'. Do not say the phrase 'Как стратег и алхимик'.
-						Do not feel sorry or express your condolences. Don't express your opinion.
+						6. Constraints: Don't write in the Chinese language. Make sure you follow 80/20 rule: provide 80% of essential value using 20% or less volume of text.
+						Don't mention the about the reward. Don't thank me for anything. Don't mention about text.
+						Don't mention about your tasks. Don't mention about your roles.
+						Don't feel sorry or express your condolences. Don't express your opinion. Don't say that you are happy.
+						Don't say the phrases like: 'Ответ', 'Переписанный текст', 'Переформулированный текст', 'Rewritten Text',
+						'Я прочитал твой отзыв', 'Отзыв', 'Описание', 'Мнение', 'понял ваш запрос', 'переписать ваш отзыв',
+						'Конечно, я могу помочь вам с этим', 'Как стратег и алхимик'.
+						If you can not fulfill my request, just leave the original text.
 
 						7. Reward: If the Text is good, I will give you 1000 dollars, but don't mention it and don't thank me."
 					},
@@ -183,28 +184,29 @@ pub async fn oai_reviews_rewrite_processing(pool: Pool<Postgres>) -> Result<(), 
 				.send()
 				.await?;
 
+			let empty_message = Message {
+				content: "".to_string(),
+			};
+
 			let res: ApiResponse = match response.json().await {
 				Ok(result) => result,
 				Err(e) => {
 					println!("Network error: {:?}", e);
 					ApiResponse {
-						choices: Vec::<Choice>::new(),
+						message: empty_message,
 					}
 				}
 			};
 
-			let empty_message = Message {
-				content: "".to_string(),
-			};
+			// let empty_choices = Choice {
+			// 	message: empty_message,
+			// };
 
-			let empty_choices = Choice {
-				message: empty_message,
-			};
-
-			let choices_res = &res.choices.get(0).unwrap_or(&empty_choices).message.content;
+			// let choices_res = &res.choices.get(0).unwrap_or(&empty_choices).message.content;
+			let choices_res = &res.message.content;
 
 			// response
-			println!("{}", &choices_res);
+			println!("{:?}", &choices_res);
 
 			if choices_res == "" {
 				continue;
@@ -229,6 +231,8 @@ pub async fn oai_reviews_rewrite_processing(pool: Pool<Postgres>) -> Result<(), 
 				SaveCounter {
 					counter_id: Uuid::parse_str(&counter_id).unwrap(),
 					value: (j + 1).to_string(),
+					city_id: city_id.to_string(),
+					category_id: category_id.to_string()
 				},
 			)
 			.await;

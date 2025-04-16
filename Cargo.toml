@@ -16,7 +16,7 @@ sqlx = { version = "0.8.0-alpha.0", features = ["runtime-async-std-native-tls", 
 chrono = { version = "0.4.30", features = ["serde"] }
 env_logger = "0.11.0"
 thiserror = "1.0.61"
-photon-rs = "0.3.2"
+photon-rs = { version = "0.3.2", default-features = false, git = "https://github.com/silvia-odwyer/photon", rev = "3b72d357848cd76be9363e87ad0cd02a19b988d2" }
 glob = "0.3.1"
 sitemap = "0.4.1"
 translit = "0.5.0"
