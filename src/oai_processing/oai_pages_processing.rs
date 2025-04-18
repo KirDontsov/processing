@@ -169,6 +169,7 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 				.replace("`", "")
 				.replace("/", "-")
 				.replace("&amp;", "&")
+				.replace(">", "")
 				.replace("--", "-");
 
 			// запись в бд
