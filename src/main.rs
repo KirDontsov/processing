@@ -8,10 +8,12 @@ mod utils;
 use config::Config;
 use dotenv::dotenv;
 use oai_processing::{
-	oai_description_processing, oai_reviews_processing, oai_reviews_rewrite_processing, oai_pages_processing
+	oai_description_processing, oai_pages_processing, oai_reviews_processing,
+	oai_reviews_rewrite_processing,
 };
 use processing::{
-	images_processing, reviews_count_processing, sitemap_processing, urls_processing,
+	images_processing, pages_sitemap_processing, reviews_count_processing, sitemap_processing,
+	title_processing, urls_processing,
 };
 use reqwest::{
 	header::{self, HeaderMap, HeaderValue},
@@ -64,6 +66,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 		"reviews" => oai_reviews_processing(pool.clone()).await?,
 		"reviews_rewrite" => oai_reviews_rewrite_processing(pool.clone()).await?,
 		"pages" => oai_pages_processing(pool.clone()).await?,
+		"pages_sitemap" => pages_sitemap_processing(pool.clone()).await?,
+		"title" => title_processing(pool.clone()).await?,
 		_ => println!("error in env (no such handler)!"),
 	}
 

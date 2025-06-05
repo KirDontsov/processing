@@ -120,10 +120,13 @@ pub async fn oai_reviews_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn 
 			.collect::<Vec<String>>()
 			.join("; ");
 
-		let preamble = format!("
+		let preamble = format!(
+			"
 			The Text:
 			{}
-			", &reviews_string.chars().take(3800).collect::<String>());
+			",
+			&reviews_string.chars().take(3800).collect::<String>()
+		);
 
 		let headers: HeaderMap<HeaderValue> = header::HeaderMap::from_iter(vec![
 			(header::ACCEPT, "application/json".parse().unwrap()),
@@ -135,7 +138,7 @@ pub async fn oai_reviews_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn 
 		]);
 
 		let body = json!({
-		  "model": "gpt-4o-mini", // идентификатор модели, можно указать конкретную или :latest  для выбора наиболее актуальной
+		  "model": "gpt-4o-mini", // идентификатор модели, можно указать конкретную или :latest для выбора наиболее актуальной
 		  "messages": [
 				{
 					"role": "system", // контекст
@@ -231,7 +234,7 @@ pub async fn oai_reviews_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn 
 				counter_id: Uuid::parse_str(&counter_id).unwrap(),
 				value: (j + 1).to_string(),
 				city_id: city_id.to_string(),
-				category_id: category_id.to_string()
+				category_id: category_id.to_string(),
 			},
 		)
 		.await;

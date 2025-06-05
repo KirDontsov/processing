@@ -5,10 +5,7 @@ use uuid::Uuid;
 use crate::models::BestlightCase;
 
 impl BestlightCase {
-	pub async fn get_cases(
-		db: &Pool<Postgres>,
-		offset: i64,
-	) -> Result<Vec<Self>, Error> {
+	pub async fn get_cases(db: &Pool<Postgres>, offset: i64) -> Result<Vec<Self>, Error> {
 		let cases_query_result = sqlx::query_as!(
 			BestlightCase,
 			"SELECT * FROM bestlight_cases ORDER by case_id LIMIT 1 OFFSET $1",

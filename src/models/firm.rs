@@ -23,6 +23,7 @@ pub struct Firm {
 	pub rating: Option<String>,
 	pub reviews_count: Option<String>,
 	pub coords: Option<String>,
+	pub title: Option<String>,
 	pub ts: Option<TsVector>,
 	pub created_ts: Option<DateTime<Utc>>,
 	pub updated_ts: Option<DateTime<Utc>>,

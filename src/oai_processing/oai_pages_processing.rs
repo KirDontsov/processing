@@ -5,12 +5,14 @@ use sqlx::{Pool, Postgres};
 use std::env;
 use std::error::Error;
 use tokio::time::{sleep, Duration};
-use uuid::Uuid;
 use urlencoding::encode;
+use uuid::Uuid;
 
 use crate::{
-	models::{Count, Counter, Firm, Review, SaveCounter, BestlightCase, Page, PageBlock, PageBlockSection},
-	utils::Translit
+	models::{
+		BestlightCase, Count, Counter, Firm, Page, PageBlock, PageBlockSection, Review, SaveCounter,
+	},
+	utils::Translit,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -69,14 +71,13 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 	]);
 
 	// получаем из базы кол-во фирм
-	let firms_count_res =
-		sqlx::query_as!(
-			Count,
-			"SELECT count(*) AS count FROM firms WHERE firm_id = $1",
-			Uuid::parse_str(&"130f13e0-1853-4dd4-8b5b-03712fb20057").unwrap()
-		)
-		.fetch_one(&pool)
-		.await?;
+	let firms_count_res = sqlx::query_as!(
+		Count,
+		"SELECT count(*) AS count FROM firms WHERE firm_id = $1",
+		Uuid::parse_str(&"130f13e0-1853-4dd4-8b5b-03712fb20057").unwrap()
+	)
+	.fetch_one(&pool)
+	.await?;
 
 	let firms_count = firms_count_res.count.expect("firms count not exist");
 
@@ -91,7 +92,8 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 	for j in 0..=firms_count {
 		println!("Firm: {:?}", j + 1);
 
-		let firm = Firm::get_firm_by_url(&pool, &"luchshii-svet-tihaya-6-lit-m".to_string()).await?;
+		let firm =
+			Firm::get_firm_by_url(&pool, &"luchshii-svet-tihaya-6-lit-m".to_string()).await?;
 		let firm_name = firm.name.expect("firm name not exist");
 
 		dbg!(&firm_name);
@@ -100,12 +102,10 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 			continue;
 		}
 
-		let count_query_result = sqlx::query_as!(
-			Count,
-			"SELECT count(*) AS count FROM bestlight_cases",
-		)
-		.fetch_one(&pool)
-		.await;
+		let count_query_result =
+			sqlx::query_as!(Count, "SELECT count(*) AS count FROM bestlight_cases",)
+				.fetch_one(&pool)
+				.await;
 
 		let cases_count = match count_query_result {
 			Ok(x) => x,
@@ -138,26 +138,25 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 
 			dbg!(&case_name.clone().unwrap_or("".to_string()));
 
-			let pages_double_urls = sqlx::query_as::<_, Page>(r#"SELECT * FROM pages WHERE oai_value = $1"#)
-				.bind(&case_name.clone().unwrap_or("".to_string()))
-				.fetch_all(&pool)
-				.await?;
+			let pages_double_urls =
+				sqlx::query_as::<_, Page>(r#"SELECT * FROM pages WHERE oai_value = $1"#)
+					.bind(&case_name.clone().unwrap_or("".to_string()))
+					.fetch_all(&pool)
+					.await?;
 
 			if pages_double_urls.len() != 0 {
 				continue;
 			}
 
-			let cases_double_urls = sqlx::query_as::<_, BestlightCase>(r#"SELECT * FROM bestlight_cases WHERE name = $1"#)
-				.bind(&case_name.clone().unwrap_or("".to_string()))
-				.fetch_all(&pool)
-				.await?;
+			let cases_double_urls = sqlx::query_as::<_, BestlightCase>(
+				r#"SELECT * FROM bestlight_cases WHERE name = $1"#,
+			)
+			.bind(&case_name.clone().unwrap_or("".to_string()))
+			.fetch_all(&pool)
+			.await?;
 
 			if cases_double_urls.len() > 1 {
-				firm_url = format!(
-					"{}-{}",
-					&translit_name,
-					&case_id,
-				);
+				firm_url = format!("{}-{}", &translit_name, &case_id,);
 			} else {
 				firm_url = format!("{}", &translit_name);
 			}
@@ -184,11 +183,13 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 			.fetch_one(&pool)
 			.await?;
 
-
 			let cur_page_id = created_page.clone().page_id;
 			dbg!(&cur_page_id);
 
-			let block_title = format!("Кейс ремонт фар {}", case_name.clone().unwrap_or("".to_string()));
+			let block_title = format!(
+				"Кейс ремонт фар {}",
+				case_name.clone().unwrap_or("".to_string())
+			);
 			let case_description = cur_case.oai_description.unwrap_or("".to_string());
 
 			let page_block = sqlx::query_as!(
@@ -266,7 +267,10 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 			println!("============");
 			println!("{:?}", &key_points_oai_res);
 
-			let block_title = format!("Кейс ремонт фар {}", case_name.clone().unwrap_or("".to_string()));
+			let block_title = format!(
+				"Кейс ремонт фар {}",
+				case_name.clone().unwrap_or("".to_string())
+			);
 
 			let key_points_block = sqlx::query_as!(
 				PageBlock,
@@ -508,7 +512,7 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 			}
 
 			// === VIN ===
-			if cur_case.vin.is_some() && cur_case.vin.clone().expect("vin") != "".to_string()  {
+			if cur_case.vin.is_some() && cur_case.vin.clone().expect("vin") != "".to_string() {
 				let tags_block = sqlx::query_as!(
 					PageBlock,
 					r#"INSERT INTO pages_blocks (page_id, page_block_order, page_block_title, page_block_subtitle, page_block_type) VALUES ($1, $2, $3, $4, $5) RETURNING *"#,

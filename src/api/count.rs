@@ -86,4 +86,22 @@ impl Count {
 
 		Ok(result)
 	}
+
+	pub async fn count_pages_by_firm(db: &Pool<Postgres>, firm_id: String) -> Result<i64, Error> {
+		let sql = format!(
+			"SELECT count(*) AS count FROM pages WHERE firm_id = '{}'",
+			&firm_id
+		);
+		let count_query_result = sqlx::query_as::<_, Count>(&sql).fetch_one(db).await;
+
+		if count_query_result.is_err() {
+			println!("Что-то пошло не так во время запроса count pages");
+		}
+
+		let result = count_query_result.unwrap().count.unwrap();
+
+		println!("Count result: {:?}", &result);
+
+		Ok(result)
+	}
 }

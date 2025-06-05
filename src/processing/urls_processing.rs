@@ -3,8 +3,8 @@ use crate::{
 	utils::Translit,
 };
 use sqlx::{Pool, Postgres};
-use urlencoding::encode;
 use std::env;
+use urlencoding::encode;
 
 pub async fn urls_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::error::Error>> {
 	println!("start");
@@ -22,10 +22,9 @@ pub async fn urls_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::er
 	)
 	.unwrap();
 
-	let firms_count =
-		Count::count_firms_with_empty_field(&pool, table.clone(), "url".to_string())
-			.await
-			.unwrap_or(0);
+	let firms_count = Count::count_firms_with_empty_field(&pool, table.clone(), "url".to_string())
+		.await
+		.unwrap_or(0);
 
 	for j in 0..=firms_count {
 		println!("№ {}", &j);
@@ -72,17 +71,19 @@ pub async fn urls_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::er
 		let _ = sqlx::query_as::<_, Firm>(
 			r#"UPDATE firms SET url = $1 WHERE firm_id = $2 RETURNING *"#,
 		)
-		.bind(
-			encode(firm_url
+		.bind(encode(
+			firm_url
 				.replace(" ", "-")
 				.replace(",", "-")
 				.replace(".", "-")
 				.replace("`", "")
 				.replace("/", "-")
+				.replace("(", "-")
+				.replace(")", "-")
 				.replace("&amp;", "&")
 				.replace("--", "-")
-				.as_str()),
-		)
+				.as_str(),
+		))
 		.bind(firm.firm_id)
 		.fetch_one(&pool)
 		.await;

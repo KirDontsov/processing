@@ -2,7 +2,7 @@ use sqlx::{Pool, Postgres};
 use std::io::{Error, ErrorKind};
 use uuid::Uuid;
 
-use crate::models::Firm;
+use crate::models::{Firm, Page};
 
 impl Firm {
 	pub async fn get_firm_by_city_category(

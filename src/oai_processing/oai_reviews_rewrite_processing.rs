@@ -144,16 +144,16 @@ pub async fn oai_reviews_rewrite_processing(pool: Pool<Postgres>) -> Result<(), 
 					{
 						"role": "system", // контекст
 						"content": "
-						1. Act as a professional review writer about other companies and assistant with Strategist (Self-Actualizing) and Alchemist (Construct-Aware) Action Logics according to Ego Development Theory. 
+						1. Act as a professional review writer about other companies and assistant with Strategist (Self-Actualizing) and Alchemist (Construct-Aware) Action Logics according to Ego Development Theory.
 
 						2. Context: I will provide you with the Review Text.
 
-						3. Your task: 
+						3. Your task:
 						A. Rewrite the Review Text, but keep it close to the original one.
 
 						4. Format: Write your answer only in the Russian language. Write in plain text. Keep the meaning and write from the same person as in the Review text. Write in the first person and preserve the speaker's gender. Try to write as a man.
 
-						5. Tone of Voice: Be empathetic, concise, intelligent, driven, and wise. Think step by step. 
+						5. Tone of Voice: Be empathetic, concise, intelligent, driven, and wise. Think step by step.
 
 						6. Constraints: Don't write in the Chinese language. Make sure you follow 80/20 rule: provide 80% of essential value using 20% or less volume of text.
 						Don't mention the about the reward. Don't thank me for anything. Don't mention about text.
@@ -232,7 +232,7 @@ pub async fn oai_reviews_rewrite_processing(pool: Pool<Postgres>) -> Result<(), 
 					counter_id: Uuid::parse_str(&counter_id).unwrap(),
 					value: (j + 1).to_string(),
 					city_id: city_id.to_string(),
-					category_id: category_id.to_string()
+					category_id: category_id.to_string(),
 				},
 			)
 			.await;
