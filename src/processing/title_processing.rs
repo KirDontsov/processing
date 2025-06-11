@@ -137,13 +137,13 @@ pub async fn title_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::e
 
 		if firms_double_titles.len() > 0 {
 			firm_title = format!(
-				"Салон красоты {} | {}-{}",
+				"Школа {} | {}-{}",
 				&firm.name.clone().unwrap(),
 				&address_string,
 				&firm.firm_id.clone()
 			);
 		} else {
-			firm_title = format!("Салон красоты {} | {}", &firm.name.clone().unwrap(), &address_string);
+			firm_title = format!("Школа {} | {}", &firm.name.clone().unwrap(), &address_string);
 		}
 
 		let preamble = format!(
@@ -175,7 +175,7 @@ pub async fn title_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::e
 					2. Context: I will provide you with the Text.
 
 					3. Your task:
-					A. Generate the best SEO Title, for web page about restaurant. Example:  Уютный салон красоты в Москве | Широкий выбор процедур, индивидуальный подход
+					A. Generate the best SEO Title, for web page about restaurant. Example:  Школа №1158 – качественное образование для всех | Инклюзивное обучение | Индивидуальный подход
 
 					4. Format: Write your answer only in the Russian language. Title must be 100 symbols length maximum.
 
