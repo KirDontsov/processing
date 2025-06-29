@@ -137,13 +137,13 @@ pub async fn title_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::e
 
 		if firms_double_titles.len() > 0 {
 			firm_title = format!(
-				"Школа {} | {}-{}",
+				"Автосервис {} | {}-{}",
 				&firm.name.clone().unwrap(),
 				&address_string,
 				&firm.firm_id.clone()
 			);
 		} else {
-			firm_title = format!("Школа {} | {}", &firm.name.clone().unwrap(), &address_string);
+			firm_title = format!("Автосервис {} | {}", &firm.name.clone().unwrap(), &address_string);
 		}
 
 		let preamble = format!(
@@ -175,7 +175,7 @@ pub async fn title_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::e
 					2. Context: I will provide you with the Text.
 
 					3. Your task:
-					A. Generate the best SEO Title, for web page about restaurant. Example:  Школа №1158 – качественное образование для всех | Инклюзивное обучение | Индивидуальный подход
+					A. Generate the best SEO Title, for web page about organization. Example:  Автосервис АВТОДОМ BRP - быстрый и надежный ремонт | Опытные мастера | Гарантия качества
 
 					4. Format: Write your answer only in the Russian language. Title must be 100 symbols length maximum.
 
@@ -184,7 +184,7 @@ pub async fn title_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::e
 					6. Constraints:
 					Text must be 100 symbols length maximum.
 					Don't write in the Chinese language.
-					Don't translate the name of the restaurant.
+					Don't translate the name of the organization.
 					Don't mention the about the reward. Don't thank me for anything. Don't mention about text. Don't use the symbols \".
 					Don't mention about your tasks. Don't mention about your roles.
 					Don't feel sorry or express your condolences. Don't express your opinion. Don't say that you are happy.
