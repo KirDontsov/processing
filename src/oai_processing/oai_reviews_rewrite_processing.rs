@@ -34,7 +34,9 @@ struct Scope {
 	scope: String,
 }
 
-pub async fn oai_reviews_rewrite_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Error>> {
+pub async fn oai_reviews_rewrite_processing(
+	pool: Pool<Postgres>,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
 	let url = env::var("OPENAI_API_BASE").expect("OPEN_AI_API_KEY not set");
 	let open_ai_token = env::var("OPENAI_API_KEY").expect("OPEN_AI_API_KEY not set");
 
@@ -68,7 +70,13 @@ pub async fn oai_reviews_rewrite_processing(pool: Pool<Postgres>) -> Result<(), 
 
 	// получаем из базы начало счетчика
 	let start = Counter::get_counter(&pool, &counter_id)
-		.await?
+		.await
+		.map_err(|e| {
+			Box::new(std::io::Error::new(
+				std::io::ErrorKind::Other,
+				format!("{}", e),
+			)) as Box<dyn std::error::Error + Send + Sync>
+		})?
 		.value
 		.unwrap_or(String::from("0"))
 		.parse::<i64>()
@@ -76,8 +84,14 @@ pub async fn oai_reviews_rewrite_processing(pool: Pool<Postgres>) -> Result<(), 
 
 	for j in start.clone()..=firms_count {
 		println!("Firm: {:?}", j + 1);
-		let firm =
-			Firm::get_firm_by_city_category(&pool, table.clone(), city_id, category_id, j).await?;
+		let firm = Firm::get_firm_by_city_category(&pool, table.clone(), city_id, category_id, j)
+			.await
+			.map_err(|e| {
+				Box::new(std::io::Error::new(
+					std::io::ErrorKind::Other,
+					format!("{}", e),
+				)) as Box<dyn std::error::Error + Send + Sync>
+			})?;
 
 		// ====
 
@@ -101,7 +115,13 @@ pub async fn oai_reviews_rewrite_processing(pool: Pool<Postgres>) -> Result<(), 
 
 		let reviews_count = match count_query_result {
 			Ok(x) => x,
-			Err(_) => Count { count: Some(0_i64) },
+			Err(e) => {
+				// Handle the error and convert to Send + Sync compatible error
+				return Err(Box::new(std::io::Error::new(
+					std::io::ErrorKind::Other,
+					format!("{}", e),
+				)) as Box<dyn std::error::Error + Send + Sync>);
+			}
 		};
 
 		if reviews_count.count.unwrap_or(0) == 0 {
@@ -112,7 +132,12 @@ pub async fn oai_reviews_rewrite_processing(pool: Pool<Postgres>) -> Result<(), 
 			println!("{}", &i);
 			let reviews_by_firm = Review::get_reviews(&pool, firm.firm_id.clone(), 1, i)
 				.await
-				.unwrap_or(Vec::new());
+				.map_err(|e| {
+					Box::new(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						format!("{}", e),
+					)) as Box<dyn std::error::Error + Send + Sync>
+				})?;
 
 			if reviews_by_firm.len() == 0 {
 				continue;
@@ -182,7 +207,13 @@ pub async fn oai_reviews_rewrite_processing(pool: Pool<Postgres>) -> Result<(), 
 				.headers(headers)
 				.json(&body)
 				.send()
-				.await?;
+				.await
+				.map_err(|e| {
+					Box::new(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						format!("{}", e),
+					)) as Box<dyn std::error::Error + Send + Sync>
+				})?;
 
 			let empty_message = Message {
 				content: "".to_string(),
@@ -224,7 +255,13 @@ pub async fn oai_reviews_rewrite_processing(pool: Pool<Postgres>) -> Result<(), 
 				cur_review.review_id.clone(),
 			)
 			.fetch_one(&pool)
-			.await;
+			.await
+			.map_err(|e| {
+				Box::new(std::io::Error::new(
+					std::io::ErrorKind::Other,
+					format!("{}", e),
+				)) as Box<dyn std::error::Error + Send + Sync>
+			})?;
 
 			let _ = Counter::update_counter(
 				&pool,
@@ -235,7 +272,13 @@ pub async fn oai_reviews_rewrite_processing(pool: Pool<Postgres>) -> Result<(), 
 					category_id: category_id.to_string(),
 				},
 			)
-			.await;
+			.await
+			.map_err(|e| {
+				Box::new(std::io::Error::new(
+					std::io::ErrorKind::Other,
+					format!("{}", e),
+				)) as Box<dyn std::error::Error + Send + Sync>
+			})?;
 		}
 	}
 

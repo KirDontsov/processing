@@ -23,5 +23,4 @@ impl AIDescription {
 
 		Ok(oai_description_result.unwrap_or(Vec::new()))
 	}
-
 }

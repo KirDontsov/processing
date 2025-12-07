@@ -1,3 +1,4 @@
+use chrono::{DateTime, TimeZone, Utc};
 use reqwest::header::{self, HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -7,7 +8,6 @@ use std::error::Error;
 use tokio::time::{sleep, Duration};
 use urlencoding::encode;
 use uuid::Uuid;
-use chrono::{DateTime, TimeZone, Utc};
 
 use crate::models::{AIDescription, Count, Counter, Firm, Review, SaveCounter};
 
@@ -90,15 +90,21 @@ pub async fn title_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::e
 
 		println!("Firm {}", &firm.firm_id.clone());
 
-		let oai_description_result = AIDescription::get_oai_descriptions(&pool, firm.firm_id.clone()).await.unwrap_or(Vec::new());
+		let oai_description_result =
+			AIDescription::get_oai_descriptions(&pool, firm.firm_id.clone())
+				.await
+				.unwrap_or(Vec::new());
 
-		let oai_description_res = oai_description_result.get(0).unwrap_or(&AIDescription{
-			oai_description_id: uuid::Uuid::new_v4(),
-			oai_description_value: Some("".to_string()),
-			firm_id: firm.firm_id.clone(),
-			created_ts: Some(DateTime::from_timestamp(61, 0).unwrap()),
-			updated_ts: Some(DateTime::from_timestamp(61, 0).unwrap())
-		}).to_owned();
+		let oai_description_res = oai_description_result
+			.get(0)
+			.unwrap_or(&AIDescription {
+				oai_description_id: uuid::Uuid::new_v4(),
+				oai_description_value: Some("".to_string()),
+				firm_id: firm.firm_id.clone(),
+				created_ts: Some(DateTime::from_timestamp(61, 0).unwrap()),
+				updated_ts: Some(DateTime::from_timestamp(61, 0).unwrap()),
+			})
+			.to_owned();
 
 		let ai_description = if &oai_description_res
 			.oai_description_value
@@ -143,7 +149,11 @@ pub async fn title_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::e
 				&firm.firm_id.clone()
 			);
 		} else {
-			firm_title = format!("Автосервис {} | {}", &firm.name.clone().unwrap(), &address_string);
+			firm_title = format!(
+				"Автосервис {} | {}",
+				&firm.name.clone().unwrap(),
+				&address_string
+			);
 		}
 
 		let preamble = format!(
@@ -246,17 +256,20 @@ pub async fn title_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn std::e
 				.replace("\u{fe0f}", " ")
 				.replace("  ", " ")
 				.as_str(),
-			format!("| {}", &choices_res
-				.replace("`", "")
-				.replace("/", "-")
-				.replace("&amp;", "&")
-				.replace("--", "-")
-				.replace("\"", "")
-				.replace("\"", "")
-				.replace("\u{200b}", " ")
-				.replace("\u{fe0f}", " ")
-				.replace("  ", " ")
-				.as_str())
+			format!(
+				"| {}",
+				&choices_res
+					.replace("`", "")
+					.replace("/", "-")
+					.replace("&amp;", "&")
+					.replace("--", "-")
+					.replace("\"", "")
+					.replace("\"", "")
+					.replace("\u{200b}", " ")
+					.replace("\u{fe0f}", " ")
+					.replace("  ", " ")
+					.as_str()
+			)
 		);
 
 		// response

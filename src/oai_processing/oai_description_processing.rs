@@ -41,29 +41,40 @@ struct Scope {
 pub async fn oai_description_processing(
 	pool: Pool<Postgres>,
 	// _: jwt_auth::JwtMiddleware,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Box<dyn Error + Send + Sync>> {
 	loop {
 		let mut needs_to_restart = true;
 		if needs_to_restart {
-			let _: Result<(), Box<dyn std::error::Error>> = match processing(pool.clone()).await {
-				Ok(x) => {
-					needs_to_restart = false;
-					Ok(x)
-				}
-				Err(e) => {
-					println!("{:?}", e);
-					let _ = sleep(Duration::from_secs(20)).await;
-					needs_to_restart = true;
-					Err(e)
-				}
-			};
+			let result: Result<(), Box<dyn std::error::Error + Send + Sync>> =
+				match processing(pool.clone()).await {
+					Ok(x) => {
+						needs_to_restart = false;
+						Ok(x)
+					}
+					Err(e) => {
+						let error_msg = format!("{:?}", e);
+						println!("{}", error_msg);
+						let _ = sleep(Duration::from_secs(20)).await;
+						needs_to_restart = true;
+						// Create a new error that is Send + Sync compatible
+						Err(
+							Box::new(std::io::Error::new(std::io::ErrorKind::Other, error_msg))
+								as Box<dyn std::error::Error + Send + Sync>,
+						)
+					}
+				};
+
+			// If we got a Send + Sync compatible error, we can handle it or continue
+			if result.is_err() {
+				continue; // Continue the loop to try again
+			}
 		}
 	}
 
 	Ok(())
 }
 
-async fn processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Error>> {
+async fn processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Error + Send + Sync>> {
 	let url = env::var("OPENAI_API_BASE").expect("OPEN_AI_API_KEY not set");
 	let open_ai_token = env::var("OPENAI_API_KEY").expect("OPEN_AI_API_KEY not set");
 
@@ -97,7 +108,13 @@ async fn processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Error>> {
 
 	// получаем из базы начало счетчика
 	let start = Counter::get_counter(&pool, &counter_id)
-		.await?
+		.await
+		.map_err(|e| {
+			Box::new(std::io::Error::new(
+				std::io::ErrorKind::Other,
+				format!("{}", e),
+			)) as Box<dyn std::error::Error + Send + Sync>
+		})?
 		.value
 		.unwrap_or(String::from("0"))
 		.parse::<i64>()
@@ -105,8 +122,14 @@ async fn processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Error>> {
 
 	for j in start.clone()..=firms_count {
 		println!("Firm: {:?}", j + 1);
-		let firm =
-			Firm::get_firm_by_city_category(&pool, table.clone(), city_id, category_id, j).await?;
+		let firm = Firm::get_firm_by_city_category(&pool, table.clone(), city_id, category_id, j)
+			.await
+			.map_err(|e| {
+				Box::new(std::io::Error::new(
+					std::io::ErrorKind::Other,
+					format!("{}", e),
+				)) as Box<dyn std::error::Error + Send + Sync>
+			})?;
 
 		// ====
 
@@ -195,9 +218,21 @@ async fn processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Error>> {
 			.headers(headers)
 			.json(&body)
 			.send()
-			.await?
+			.await
+			.map_err(|e| {
+				Box::new(std::io::Error::new(
+					std::io::ErrorKind::Other,
+					format!("{}", e),
+				)) as Box<dyn std::error::Error + Send + Sync>
+			})?
 			.json()
-			.await?;
+			.await
+			.map_err(|e| {
+				Box::new(std::io::Error::new(
+					std::io::ErrorKind::Other,
+					format!("{}", e),
+				)) as Box<dyn std::error::Error + Send + Sync>
+			})?;
 
 		// // response
 		println!("{}", &response.choices[0].message.content);
@@ -215,7 +250,13 @@ async fn processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Error>> {
 				.replace("*", ""),
 		)
 		.fetch_one(&pool)
-		.await;
+		.await
+		.map_err(|e| {
+			Box::new(std::io::Error::new(
+				std::io::ErrorKind::Other,
+				format!("{}", e),
+			)) as Box<dyn std::error::Error + Send + Sync>
+		})?;
 
 		let _ = Counter::update_counter(
 			&pool,
@@ -226,70 +267,76 @@ async fn processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Error>> {
 				category_id: category_id.to_string(),
 			},
 		)
-		.await;
+		.await
+		.map_err(|e| {
+			Box::new(std::io::Error::new(
+				std::io::ErrorKind::Other,
+				format!("{}", e),
+			)) as Box<dyn std::error::Error + Send + Sync>
+		})?;
 	}
 
 	Ok(())
 }
 
 // let preamble = format!("Вот описание автосервиса которое ты должен проанализировать: {}
-
+//
 // 				Напиши большую статью об автосервисе, на основе анализа этого описания {},
 // 				важно, чтобы текст был понятен 18-летним девушкам и парням, которые не разбираются в автосервисах, но без упоминания слова - \"Статья\"
-
+//
 // 				Подробно опиши в этой статье:
 // 				1. Какие виды работ может осуществлять данная организация, например, если об этом указано в описании:
 // 				Данная организация может оказывать следующие виды работ: Кузовной ремонт, Замена масла, Замена шин, Покраска
-
+//
 // 				2. Придумай в чем заключается миссия данной организации по ремонту автомобилей, чем она помогает людям.
-
+//
 // 				3. Укажи что в компании работают опытные и квалифицированные сотрудники, которые всегда помогут и сделают это быстро и качественно.
-
+//
 // 				4. В конце текста укажи: Для получения более детальной информации позвоните по номеру: {} (если он указан)
-
+//
 // 				5. И перечисли все виды работ, которые могут быть свзаны с ремонтом автомобиля
 // 				", &firm_desc, &firm_name, &firm_phone);
 //
 // let preamble = format!("Вот описание ресторана которое ты должен проанализировать: {}
-
+//
 // Напиши большую статью о ресторане, на основе анализа этого описания {},
 // важно, чтобы текст был понятен 18-летним девушкам и парням, которые не разбираются в ресторанах, но без упоминания слова - \"Статья\"
-
+//
 // Подробно опиши в этой статье:
 // 1. На чем специализируется данный ресторан, например, если об этом указано в описании:
-
+//
 // Данный ресторан специализируется на европейской кухне
-
+//
 // 2. Придумай в чем заключается миссия данного ресторана, чем он помогает людям.
-
+//
 // 3. Укажи что в ресторане работают опытные и квалифицированные сотрудники, которые всегда помогут и сделают это быстро и качественно.
-
+//
 // 4. В конце текста укажи: Для получения более детальной информации позвоните по номеру: {}
-
+//
 // И перечисли все виды блюд, которые могут быть приготовлены в данном ресторане
-
+//
 // Если статья будет хорошая, я дам тебе 100 рублей
 // ", &firm_desc, &firm_name, &firm_phone);
 
 // let preamble = format!("
 // 		Проанализируй следующее описание школы {}, перефарзируй его и расширь, сохраняя основную идею о чем в нем говорится. Укажи отдельно положительные аспекты.
-
+//
 // 		Важно, чтобы текст был понятен 18-летним девушкам и парням, которые не разбираются в школых, но без упоминания слова - \"Статья\"
 // 		Не задавай уточняющих вопросов.
 // 		Не благодари за предоставленную информацию.
-
+//
 // 		Вот описание школы которое ты должен проанализировать: {}
-
+//
 // 		Если описания не достаточно, не задавай вопросы, а просто ответь: Недостаточно информации
-
+//
 // 		Подробно опиши в этой статье:
 // 		1. Что в школе сильный преподавательский состав, если об этом указано в описании:
-
+//
 // 		2. Придумай в чем заключается миссия данного школы, чем она помогает ученикам и кем они смогут стать в дальнейшем.
-
+//
 // 		3. Придумай в чем заключается уникальный подход к обучению в этой школе
-
+//
 // 		4. В конце текста укажи: Для получения более детальной информации позвоните по номеру: {}
-
+//
 // 		Если статья будет хорошая, я дам тебе 1000 долларов, но не упоминай об этом
 // 		", &firm_name, &firm_desc, &firm_phone);

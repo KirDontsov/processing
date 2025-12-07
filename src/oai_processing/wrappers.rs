@@ -1,0 +1,1 @@
+// This file is no longer needed as the original functions have been updated to be Send + Sync compatible

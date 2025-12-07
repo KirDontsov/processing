@@ -7,6 +7,7 @@ pub mod count;
 pub mod counter;
 pub mod firm;
 pub mod pages;
+pub mod rabbitmq;
 pub mod review;
 
 pub use self::ai_description::*;
@@ -18,4 +19,5 @@ pub use self::count::*;
 pub use self::counter::*;
 pub use self::firm::*;
 pub use self::pages::*;
+pub use self::rabbitmq::*;
 pub use self::review::*;

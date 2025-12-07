@@ -40,7 +40,9 @@ struct Scope {
 	scope: String,
 }
 
-pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Error>> {
+pub async fn oai_pages_processing(
+	pool: Pool<Postgres>,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
 	let url = env::var("OPENAI_API_BASE").expect("OPEN_AI_API_KEY not set");
 	let open_ai_token = env::var("OPENAI_API_KEY").expect("OPEN_AI_API_KEY not set");
 
@@ -77,7 +79,13 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 		Uuid::parse_str(&"130f13e0-1853-4dd4-8b5b-03712fb20057").unwrap()
 	)
 	.fetch_one(&pool)
-	.await?;
+	.await
+	.map_err(|e| {
+		Box::new(std::io::Error::new(
+			std::io::ErrorKind::Other,
+			format!("{}", e),
+		)) as Box<dyn std::error::Error + Send + Sync>
+	})?;
 
 	let firms_count = firms_count_res.count.expect("firms count not exist");
 
@@ -92,8 +100,14 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 	for j in 0..=firms_count {
 		println!("Firm: {:?}", j + 1);
 
-		let firm =
-			Firm::get_firm_by_url(&pool, &"luchshii-svet-tihaya-6-lit-m".to_string()).await?;
+		let firm = Firm::get_firm_by_url(&pool, &"luchshii-svet-tihaya-6-lit-m".to_string())
+			.await
+			.map_err(|e| {
+				Box::new(std::io::Error::new(
+					std::io::ErrorKind::Other,
+					format!("{}", e),
+				)) as Box<dyn std::error::Error + Send + Sync>
+			})?;
 		let firm_name = firm.name.expect("firm name not exist");
 
 		dbg!(&firm_name);
@@ -109,7 +123,13 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 
 		let cases_count = match count_query_result {
 			Ok(x) => x,
-			Err(_) => Count { count: Some(0_i64) },
+			Err(e) => {
+				// Handle the error and convert to Send + Sync compatible error
+				return Err(Box::new(std::io::Error::new(
+					std::io::ErrorKind::Other,
+					format!("{}", e),
+				)) as Box<dyn std::error::Error + Send + Sync>);
+			}
 		};
 
 		if cases_count.count.unwrap_or(0) == 0 {
@@ -121,9 +141,12 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 		for i in 0..=cases_count.count.unwrap_or(0) {
 			println!("{}", &i);
 
-			let cases_by_firm = BestlightCase::get_cases(&pool, i)
-				.await
-				.unwrap_or(Vec::new());
+			let cases_by_firm = BestlightCase::get_cases(&pool, i).await.map_err(|e| {
+				Box::new(std::io::Error::new(
+					std::io::ErrorKind::Other,
+					format!("{}", e),
+				)) as Box<dyn std::error::Error + Send + Sync>
+			})?;
 
 			if cases_by_firm.len() == 0 {
 				continue;
@@ -142,7 +165,13 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 				sqlx::query_as::<_, Page>(r#"SELECT * FROM pages WHERE oai_value = $1"#)
 					.bind(&case_name.clone().unwrap_or("".to_string()))
 					.fetch_all(&pool)
-					.await?;
+					.await
+					.map_err(|e| {
+						Box::new(std::io::Error::new(
+							std::io::ErrorKind::Other,
+							format!("{}", e),
+						)) as Box<dyn std::error::Error + Send + Sync>
+					})?;
 
 			if pages_double_urls.len() != 0 {
 				continue;
@@ -153,7 +182,13 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 			)
 			.bind(&case_name.clone().unwrap_or("".to_string()))
 			.fetch_all(&pool)
-			.await?;
+			.await
+			.map_err(|e| {
+				Box::new(std::io::Error::new(
+					std::io::ErrorKind::Other,
+					format!("{}", e),
+				)) as Box<dyn std::error::Error + Send + Sync>
+			})?;
 
 			if cases_double_urls.len() > 1 {
 				firm_url = format!("{}-{}", &translit_name, &case_id,);
@@ -167,7 +202,7 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 				.replace(".", "-")
 				.replace("`", "")
 				.replace("/", "-")
-				.replace("&amp;", "&")
+				.replace("&", "&")
 				.replace(">", "")
 				.replace("--", "-");
 
@@ -181,7 +216,8 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 				cur_case.photo.clone()
 			)
 			.fetch_one(&pool)
-			.await?;
+			.await
+			.map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e))) as Box<dyn std::error::Error + Send + Sync>)?;
 
 			let cur_page_id = created_page.clone().page_id;
 			dbg!(&cur_page_id);
@@ -201,7 +237,8 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 				1,
 			)
 			.fetch_one(&pool)
-			.await?;
+			.await
+			.map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e))) as Box<dyn std::error::Error + Send + Sync>)?;
 
 			// === KEY POINTS ===
 			let key_points_preamble = format!(
@@ -241,7 +278,13 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 				.headers(headers.clone())
 				.json(&key_points_body)
 				.send()
-				.await?;
+				.await
+				.map_err(|e| {
+					Box::new(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						format!("{}", e),
+					)) as Box<dyn std::error::Error + Send + Sync>
+				})?;
 
 			let empty_message = Message {
 				content: "".to_string(),
@@ -281,7 +324,8 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 				1,
 			)
 			.fetch_one(&pool)
-			.await?;
+			.await
+			.map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e))) as Box<dyn std::error::Error + Send + Sync>)?;
 
 			let key_points_block_id = key_points_block.clone().page_block_id;
 			dbg!(&key_points_block_id);
@@ -296,12 +340,13 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 					let _ = sqlx::query_as!(
 						PageBlockSection,
 						r#"INSERT INTO pages_blocks_sections (page_block_id, page_block_section_order, text) VALUES ($1, $2, $3) RETURNING *;"#,
-        	key_points_block_id,
-         	index.to_string(),
+						key_points_block_id,
+						index.to_string(),
 						key.replace("/n", ""),
 					)
 					.fetch_one(&pool)
-					.await?;
+					.await
+					.map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e))) as Box<dyn std::error::Error + Send + Sync>)?;
 				}
 			}
 
@@ -315,7 +360,8 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 				1,
 			)
 			.fetch_one(&pool)
-			.await?;
+			.await
+			.map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e))) as Box<dyn std::error::Error + Send + Sync>)?;
 
 			let work_stages_block_id = work_stages_block.clone().page_block_id;
 			dbg!(&work_stages_block_id);
@@ -357,7 +403,13 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 				.headers(headers.clone())
 				.json(&work_stages_body)
 				.send()
-				.await?;
+				.await
+				.map_err(|e| {
+					Box::new(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						format!("{}", e),
+					)) as Box<dyn std::error::Error + Send + Sync>
+				})?;
 
 			let empty_message = Message {
 				content: "".to_string(),
@@ -393,12 +445,13 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 					let _ = sqlx::query_as!(
 						PageBlockSection,
 						r#"INSERT INTO pages_blocks_sections (page_block_id, page_block_section_order, text) VALUES ($1, $2, $3) RETURNING *;"#,
-        	work_stages_block_id,
-         	index.to_string(),
+						work_stages_block_id,
+						index.to_string(),
 						key.replace("/n", ""),
 					)
 					.fetch_one(&pool)
-					.await?;
+					.await
+					.map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e))) as Box<dyn std::error::Error + Send + Sync>)?;
 				}
 			}
 
@@ -412,7 +465,8 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 				0,
 			)
 			.fetch_one(&pool)
-			.await?;
+			.await
+			.map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e))) as Box<dyn std::error::Error + Send + Sync>)?;
 
 			// === PRICES ===
 			let prices_block = sqlx::query_as!(
@@ -424,7 +478,8 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 				1,
 			)
 			.fetch_one(&pool)
-			.await?;
+			.await
+			.map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e))) as Box<dyn std::error::Error + Send + Sync>)?;
 
 			let prices_block_id = prices_block.clone().page_block_id;
 			dbg!(&prices_block_id);
@@ -466,7 +521,13 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 				.headers(headers.clone())
 				.json(&prices_body)
 				.send()
-				.await?;
+				.await
+				.map_err(|e| {
+					Box::new(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						format!("{}", e),
+					)) as Box<dyn std::error::Error + Send + Sync>
+				})?;
 
 			let empty_message = Message {
 				content: "".to_string(),
@@ -502,12 +563,13 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 					let _ = sqlx::query_as!(
 						PageBlockSection,
 						r#"INSERT INTO pages_blocks_sections (page_block_id, page_block_section_order, text) VALUES ($1, $2, $3) RETURNING *;"#,
-        	prices_block_id,
-         	index.to_string(),
+						prices_block_id,
+						index.to_string(),
 						key.replace("/n", ""),
 					)
 					.fetch_one(&pool)
-					.await?;
+					.await
+					.map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e))) as Box<dyn std::error::Error + Send + Sync>)?;
 				}
 			}
 
@@ -523,7 +585,8 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 					0,
 				)
 				.fetch_one(&pool)
-				.await?;
+				.await
+				.map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e))) as Box<dyn std::error::Error + Send + Sync>)?;
 			}
 
 			// === TAGS ===
@@ -536,7 +599,8 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 				2,
 			)
 			.fetch_one(&pool)
-			.await?;
+			.await
+			.map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e))) as Box<dyn std::error::Error + Send + Sync>)?;
 
 			let tags_block_id = tags_block.clone().page_block_id;
 			dbg!(&tags_block_id);
@@ -579,7 +643,13 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 				.headers(headers.clone())
 				.json(&tags_body)
 				.send()
-				.await?;
+				.await
+				.map_err(|e| {
+					Box::new(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						format!("{}", e),
+					)) as Box<dyn std::error::Error + Send + Sync>
+				})?;
 
 			let empty_message = Message {
 				content: "".to_string(),
@@ -615,13 +685,14 @@ pub async fn oai_pages_processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Er
 					let _ = sqlx::query_as!(
 						PageBlockSection,
 						r#"INSERT INTO pages_blocks_sections (page_block_id, page_block_section_order, text, url) VALUES ($1, $2, $3, $4) RETURNING *;"#,
-        	tags_block_id,
-         	index.to_string(),
+						tags_block_id,
+						index.to_string(),
 					key.replace("/n", ""),
 					&encode(&prepared_firm_url.as_str()),
 					)
 					.fetch_one(&pool)
-					.await?;
+					.await
+					.map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e))) as Box<dyn std::error::Error + Send + Sync>)?;
 				}
 			}
 		}
