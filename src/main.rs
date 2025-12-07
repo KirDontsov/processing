@@ -324,8 +324,13 @@ async fn handle_ai_processing_task(
 	let processing_result: Result<String, Box<dyn std::error::Error + Send + Sync>> =
 		match task.request_data.processing_type.as_str() {
 			"description" => {
-				match oai_description_processing(pool.clone()).await {
-					Ok(_) => Ok("".to_string()), // For other types, return empty string
+				match crate::oai_processing::ai_description_processing::process_description_with_ai(
+					pool.clone(),
+					&task,
+				)
+				.await
+				{
+					Ok(beautified_description) => Ok(beautified_description),
 					Err(e) => Err(Box::new(std::io::Error::new(
 						std::io::ErrorKind::Other,
 						format!("{}", e),
@@ -392,15 +397,21 @@ async fn handle_ai_processing_task(
 	// Send final result
 	if let Some(ref producer) = producer {
 		match processing_result {
-			Ok(beautified_title) => {
-				// Send the beautified title as result data
+			Ok(result_value) => {
+				// Send the appropriate result data based on processing type
+				let result_data = match task.request_data.processing_type.as_str() {
+					"title" => json!({"beautified_title": result_value}),
+					"description" => json!({"beautified_description": result_value}),
+					_ => json!({"result": result_value}), // Default for other types
+				};
+				
 				if let Err(e) = producer
 					.send_result(
 						task.task_id,
 						task.request_data.user_id,
 						Some(task.request_data.request_id),
 						"completed",
-						Some(json!({"beautified_title": beautified_title})),
+						Some(result_data),
 						None,
 					)
 					.await

@@ -9,10 +9,19 @@ use std::error::Error;
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
-struct LegacyTaskFormat {
+struct LegacyTitleTaskFormat {
 	task_id: Uuid,
 	user_id: Uuid,
 	title: String,
+	category: String,
+	created_ts: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LegacyDescriptionTaskFormat {
+	task_id: Uuid,
+	user_id: Uuid,
+	description: String,
 	category: String,
 	created_ts: DateTime<Utc>,
 }
@@ -347,11 +356,11 @@ impl RabbitMQConsumer {
 		println!("Raw message: {}", message_str);
 
 		// Try to parse as AIProcessingTask first
-		let task: AIProcessingTask = match serde_json::from_str::<AIProcessingTask>(message_str) {
+	let task: AIProcessingTask = match serde_json::from_str::<AIProcessingTask>(message_str) {
 			Ok(task) => task,
 			Err(_) => {
-				// If that fails, try to parse as the legacy format and convert it
-				match serde_json::from_str::<LegacyTaskFormat>(message_str) {
+				// If that fails, try to parse as the legacy title format and convert it
+				match serde_json::from_str::<LegacyTitleTaskFormat>(message_str) {
 					Ok(legacy_task) => {
 						// Convert the legacy format to the new AIProcessingTask format
 						AIProcessingTask {
@@ -369,13 +378,35 @@ impl RabbitMQConsumer {
 							created_at: legacy_task.created_ts.to_rfc3339(),
 						}
 					}
-					Err(e) => {
-						eprintln!("Failed to parse message as both AIProcessingTask and legacy format: {}", e);
-						eprintln!("Message content: {}", message_str);
-						return Err(Box::new(std::io::Error::new(
-							std::io::ErrorKind::Other,
-							format!("Parse error: {}", e),
-						)));
+					Err(_) => {
+						// If that fails, try to parse as the legacy description format and convert it
+						match serde_json::from_str::<LegacyDescriptionTaskFormat>(message_str) {
+							Ok(legacy_desc_task) => {
+								// Convert the legacy format to the new AIProcessingTask format
+								AIProcessingTask {
+									task_id: legacy_desc_task.task_id,
+									request_data: AIRequestData {
+										request_id: legacy_desc_task.task_id, // Use task_id as request_id for compatibility
+										user_id: legacy_desc_task.user_id,
+										processing_type: "description".to_string(), // Set to description processing
+										parameters: serde_json::json!({
+											"description": legacy_desc_task.description,
+											"category": legacy_desc_task.category,
+											"created_ts": legacy_desc_task.created_ts
+										}),
+									},
+									created_at: legacy_desc_task.created_ts.to_rfc3339(),
+								}
+							}
+							Err(e) => {
+								eprintln!("Failed to parse message as AIProcessingTask, legacy title format, or legacy description format: {}", e);
+								eprintln!("Message content: {}", message_str);
+								return Err(Box::new(std::io::Error::new(
+									std::io::ErrorKind::Other,
+									format!("Parse error: {}", e),
+								)));
+							}
+						}
 					}
 				}
 			}
