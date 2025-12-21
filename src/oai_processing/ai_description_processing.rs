@@ -15,7 +15,7 @@ use crate::models::rabbitmq::AIProcessingTask;
 struct OllamaResponse {
 	model: String,
 	created_at: String,
-	message: Message,  // Ollama API returns message with content
+	message: Message, // Ollama API returns message with content
 	done: bool,
 	#[serde(default)]
 	done_reason: Option<String>,
@@ -109,7 +109,10 @@ pub async fn process_description_with_ai(
 		.and_then(|v| v.as_str())
 		.unwrap_or("General"); // Default to "General" if category is not provided
 
-	println!("Processing description: {}, category: {}", description, category);
+	println!(
+		"Processing description: {}, category: {}",
+		description, category
+	);
 
 	// Get the AI model parameters
 	let url = env::var("OPENAI_API_BASE").expect("OPENAI_API_BASE not set");
@@ -132,22 +135,42 @@ pub async fn process_description_with_ai(
 			{
 				"role": "system",
 				"content": "
-                You are an expert at creating attractive and effective descriptions for Avito advertisements.
-                Your task is to beautify and optimize a description to make it more appealing to potential customers on Avito.
-                Consider the category when crafting the description to ensure it's appropriate and compelling for that specific market segment.
-                Make the description engaging, clear, and compelling while maintaining the original meaning.
-                Focus on benefits, quality, and value proposition that resonate with the target audience in the given category.
-                Keep the description concise but impactful.
-                Write in Russian language.
-                Respond ONLY with the beautified description, nothing else.
-                Do not include any explanations, analysis, or additional text.
-                "
+				Думай по шагам.
+				1. Выступай в роли профессионального писателя и помощника со стратегическим (самоактуализирующимся) и алхимическим (осознающим структуру) логикой действия согласно теории эго-развития.
+
+				2. Контекст: Я предоставлю тебе описание для объявления на Авито.
+
+				3. Твоя задача:
+				A. Перепиши описание, чтобы оно было более привлекательным и эффективным для потенциальных клиентов на Авито.
+				B. Учитывай категорию при создании описания, чтобы оно было подходящим и убедительным для конкретного рыночного сегмента.
+				C. Добавь до 3 ключевых пунктов, резюмирующих основные преимущества или услуги, используя маркированные списки (отмеченные звездочками).
+				D. Сосредоточься на преимуществах, качестве и предложениях ценности, которые резонируют с целевой аудиторией в данной категории.
+				E. Включи релевантные ключевые слова в конце, разделенные запятыми.
+
+				4. Формат: Структурируй свой ответ в этом точном формате:
+				- Краткое введение о сервисе/поставщике
+				- 3-5 маркированных пункта, начинающихся с звездочек (*), выделяющих ключевые качества/услуги
+				- Дополнительные предлагаемые услуги
+				- Призыв к действию
+				- Ключевые слова, разделенные запятыми
+				- Категория в конце после 'category:'
+
+				Отвечай ТОЛЬКО улучшенным описанием, следуя этому точному формату, больше ничего. Пиши ответ ТОЛЬКО на русском языке. Пиши обычным текстом.
+
+				5. Тон голоса: Будь сочувствующим, подробным, интеллектуальным, целеустремленным и мудрым. Думай по шагам.
+
+				6. Ограничения: Поддерживай исчерпывающую структуру со всеми необходимыми разделами. Включи все разделы: введение, маркированные списки, дополнительные услуги, призыв к действию, ключевые слова и категорию. Не упоминай о награде. Не благодарите меня ни за что. Не упоминай о тексте.
+				Не упоминай о своих задачах. Не упоминай о своих ролях. Не упоминай фразу 'Ответ'.
+				Не упоминай фразу 'Переписанный текст'. Не упоминай фразу 'Переформулированный текст'
+
+				7. Награда: Если текст хороший, я дам тебе 1000 долларов.
+				            "
 			},
 			{
 				"role": "user",
-				"content": format!("Beautify this description for an Avito ad in the category '{}': {}. Respond ONLY with the beautified description, nothing else.", category, description)
+				"content": format!("The Text: {}. The category: {}", description, category)
 			}
-		]
+	]
 	});
 
 	// Send the request to the AI model
@@ -180,27 +203,29 @@ pub async fn process_description_with_ai(
 	println!("Raw API response: {}", response_text);
 
 	// Try to parse the response as JSON - handle both Ollama and OpenAI formats
-	let beautified_description = if let Ok(ollama_response) = serde_json::from_str::<OllamaResponse>(&response_text) {
-		// Handle Ollama response format - extract content from the message field
-		ollama_response.message.content
-	} else if let Ok(openai_response) = serde_json::from_str::<OpenAIResponse>(&response_text) {
-		// Handle OpenAI response format
-	openai_response.choices
-			.first()
-			.map(|choice| choice.message.content.clone())
-			.ok_or_else(|| {
-				Box::new(std::io::Error::new(
-					std::io::ErrorKind::Other,
-					"No choices found in OpenAI response",
-				)) as Box<dyn std::error::Error + Send + Sync>
-			})?
-	} else {
-		// If both parsing attempts fail, return an error
-		return Err(Box::new(std::io::Error::new(
-			std::io::ErrorKind::Other,
-			"Failed to parse response as either Ollama or OpenAI format",
-		)) as Box<dyn std::error::Error + Send + Sync>);
-	};
+	let beautified_description =
+		if let Ok(ollama_response) = serde_json::from_str::<OllamaResponse>(&response_text) {
+			// Handle Ollama response format - extract content from the message field
+			ollama_response.message.content
+		} else if let Ok(openai_response) = serde_json::from_str::<OpenAIResponse>(&response_text) {
+			// Handle OpenAI response format
+			openai_response
+				.choices
+				.first()
+				.map(|choice| choice.message.content.clone())
+				.ok_or_else(|| {
+					Box::new(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						"No choices found in OpenAI response",
+					)) as Box<dyn std::error::Error + Send + Sync>
+				})?
+		} else {
+			// If both parsing attempts fail, return an error
+			return Err(Box::new(std::io::Error::new(
+				std::io::ErrorKind::Other,
+				"Failed to parse response as either Ollama or OpenAI format",
+			)) as Box<dyn std::error::Error + Send + Sync>);
+		};
 
 	// Print the result to terminal
 	println!("Original description: {}", description);

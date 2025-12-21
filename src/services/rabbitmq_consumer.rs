@@ -356,7 +356,7 @@ impl RabbitMQConsumer {
 		println!("Raw message: {}", message_str);
 
 		// Try to parse as AIProcessingTask first
-	let task: AIProcessingTask = match serde_json::from_str::<AIProcessingTask>(message_str) {
+		let task: AIProcessingTask = match serde_json::from_str::<AIProcessingTask>(message_str) {
 			Ok(task) => task,
 			Err(_) => {
 				// If that fails, try to parse as the legacy title format and convert it

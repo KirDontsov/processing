@@ -107,12 +107,12 @@ pub async fn oai_reviews_processing(
 			continue;
 		}
 
-		let oai_review = sqlx::query_as!(
+		let oai_review: Result<AIReview, sqlx::Error> = sqlx::query_as!(
 			AIReview,
 			r#"SELECT * FROM oai_reviews WHERE firm_id = $1;"#,
 			&firm.firm_id
 		)
-		.fetch_one(&pool)
+	.fetch_one(&pool)
 		.await;
 
 		if oai_review.is_ok() {
@@ -239,7 +239,7 @@ pub async fn oai_reviews_processing(
 		);
 
 		// запись в бд
-		let _ = sqlx::query_as!(
+		let inserted_review: AIReview = sqlx::query_as!(
 			AIReview,
 			r#"INSERT INTO oai_reviews (firm_id, text) VALUES ($1, $2) RETURNING *"#,
 			firm.firm_id.clone(),

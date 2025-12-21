@@ -73,7 +73,7 @@ pub async fn oai_pages_processing(
 	]);
 
 	// получаем из базы кол-во фирм
-	let firms_count_res = sqlx::query_as!(
+	let firms_count_res: Count = sqlx::query_as!(
 		Count,
 		"SELECT count(*) AS count FROM firms WHERE firm_id = $1",
 		Uuid::parse_str(&"130f13e0-1853-4dd4-8b5b-03712fb20057").unwrap()
@@ -207,7 +207,7 @@ pub async fn oai_pages_processing(
 				.replace("--", "-");
 
 			// запись в бд
-			let created_page = sqlx::query_as!(
+			let created_page: Page = sqlx::query_as!(
 				Page,
 				r#"INSERT INTO pages (url, firm_id, oai_value, page_photo) VALUES ($1, $2, $3, $4) RETURNING *"#,
 				&encode(&prepared_firm_url.as_str()),
@@ -228,7 +228,7 @@ pub async fn oai_pages_processing(
 			);
 			let case_description = cur_case.oai_description.unwrap_or("".to_string());
 
-			let page_block = sqlx::query_as!(
+			let page_block: PageBlock = sqlx::query_as!(
 				PageBlock,
 				r#"INSERT INTO pages_blocks (page_id, page_block_order, page_block_title, page_block_type) VALUES ($1, $2, $3, $4) RETURNING *"#,
 				cur_page_id,
@@ -315,7 +315,7 @@ pub async fn oai_pages_processing(
 				case_name.clone().unwrap_or("".to_string())
 			);
 
-			let key_points_block = sqlx::query_as!(
+			let key_points_block: PageBlock = sqlx::query_as!(
 				PageBlock,
 				r#"INSERT INTO pages_blocks (page_id, page_block_order, page_block_title, page_block_type) VALUES ($1, $2, $3, $4) RETURNING *"#,
 				cur_page_id,
@@ -337,7 +337,7 @@ pub async fn oai_pages_processing(
 
 			for (index, key) in key_points_oai_array.iter().enumerate() {
 				if *key != "".to_string() && *key != " ".to_string() {
-					let _ = sqlx::query_as!(
+					let section: PageBlockSection = sqlx::query_as!(
 						PageBlockSection,
 						r#"INSERT INTO pages_blocks_sections (page_block_id, page_block_section_order, text) VALUES ($1, $2, $3) RETURNING *;"#,
 						key_points_block_id,
@@ -351,7 +351,7 @@ pub async fn oai_pages_processing(
 			}
 
 			// === WORK STAGES ===
-			let work_stages_block = sqlx::query_as!(
+			let work_stages_block: PageBlock = sqlx::query_as!(
 				PageBlock,
 				r#"INSERT INTO pages_blocks (page_id, page_block_order, page_block_title, page_block_type) VALUES ($1, $2, $3, $4) RETURNING *"#,
 				cur_page_id,
@@ -455,7 +455,7 @@ pub async fn oai_pages_processing(
 				}
 			}
 
-			let after_work_stages_block = sqlx::query_as!(
+			let after_work_stages_block: PageBlock = sqlx::query_as!(
 				PageBlock,
 				r#"INSERT INTO pages_blocks (page_id, page_block_order, page_block_title, page_block_subtitle, page_block_type) VALUES ($1, $2, $3, $4, $5) RETURNING *"#,
 				cur_page_id,
@@ -469,7 +469,7 @@ pub async fn oai_pages_processing(
 			.map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("{}", e))) as Box<dyn std::error::Error + Send + Sync>)?;
 
 			// === PRICES ===
-			let prices_block = sqlx::query_as!(
+			let prices_block: PageBlock = sqlx::query_as!(
 				PageBlock,
 				r#"INSERT INTO pages_blocks (page_id, page_block_order, page_block_title, page_block_type) VALUES ($1, $2, $3, $4) RETURNING *"#,
 				cur_page_id,

@@ -404,7 +404,7 @@ async fn handle_ai_processing_task(
 					"description" => json!({"beautified_description": result_value}),
 					_ => json!({"result": result_value}), // Default for other types
 				};
-				
+
 				if let Err(e) = producer
 					.send_result(
 						task.task_id,

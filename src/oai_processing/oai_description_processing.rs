@@ -144,11 +144,11 @@ async fn processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Error + Send + S
 			continue;
 		}
 
-		let oai_description = sqlx::query_as!(
+		let oai_description: Result<AIDescription, sqlx::Error> = sqlx::query_as!(
 			AIDescription,
 			r#"SELECT * FROM oai_descriptions WHERE firm_id = $1;"#,
 			&firm.firm_id
-		)
+	)
 		.fetch_one(&pool)
 		.await;
 
@@ -238,7 +238,7 @@ async fn processing(pool: Pool<Postgres>) -> Result<(), Box<dyn Error + Send + S
 		println!("{}", &response.choices[0].message.content);
 
 		// запись в бд
-		let _ = sqlx::query_as!(
+		let inserted_description: AIDescription = sqlx::query_as!(
 			AIDescription,
 			r#"INSERT INTO oai_descriptions (firm_id, oai_description_value) VALUES ($1, $2) RETURNING *"#,
 			firm.firm_id.clone(),

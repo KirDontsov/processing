@@ -88,26 +88,37 @@ pub async fn process_title_with_ai(
 	]);
 
 	let body = json!({
-		"model": "deepseek-v2:16b",
+	"model": "deepseek-v2:16b",
 		"stream": false,  // Disable streaming to get a single response
 		"messages": [
 			{
 				"role": "system",
 				"content": "
-                You are an expert at creating attractive and effective titles for Avito advertisements.
-                Your task is to beautify and optimize a title to make it more appealing to potential customers on Avito.
-                Consider the category when crafting the title to ensure it's appropriate and compelling for that specific market segment.
-                Make the title catchy, clear, and compelling while maintaining the original meaning.
-                Focus on benefits, quality, and value proposition that resonate with the target audience in the given category.
-                Keep the title concise but impactful.
-                Write in Russian language.
-                Respond ONLY with the beautified title, nothing else.
-                Do not include any explanations, analysis, or additional text.
-                "
+				Думай по шагам.
+				1. Выступай в роли профессионального писателя и помощника со стратегическим (самоактуализирующимся) и алхимическим (осознающим структуру) логикой действия согласно теории эго-развития.
+
+				2. Контекст: Я предоставлю вам заголовок для объявления на Авито.
+
+				3. Ваша задача:
+				A. Перепиши заголовок, чтобы он был более привлекательным и эффективным для потенциальных клиентов на Авито.
+				B. Учитывай категорию при создании заголовка, чтобы он был подходящим и убедительным для конкретного рыночного сегмента.
+				C. Сделай заголовок запоминающимся, понятным и убедительным, сохранив первоначальный смысл.
+				D. Сосредоточься на преимуществах, качестве и предложениях ценности, которые резонируют с целевой аудиторией в данной категории.
+
+				4. Формат: Отвечай ТОЛЬКО улучшенным заголовком, больше ничего. Пиши ответ ТОЛЬКО на русском языке. Пиши обычным текстом.
+
+				5. Тон голоса: Будь сочувствующим, кратким, интеллектуальным, целеустремленным и мудрым. Думай по шагам.
+
+				6. Ограничения: Обязательно следуй правилу 80/20: обеспечь 80% основной ценности, используя 20% или меньше объема текста. Делай заголовок максимально коротким - максимум 80 символов. Не упоминай о награде. Не благодарите меня ни за что. Не упоминай о тексте.
+				Не упоминай о своих задачах. Не упоминай о своих ролях. Не упоминай фразу 'Ответ'.
+				Не упоминай фразу 'Переписанный текст'. Не упоминай фразу 'Переформулированный текст'
+
+				7. Награда: Если текст хороший, я дам тебе 1000 долларов.
+				            "
 			},
 			{
 				"role": "user",
-				"content": format!("Beautify this title for an Avito ad in the category '{}': {}. Respond ONLY with the beautified title, nothing else.", category, title)
+				"content": format!("The Title: {}. The category: {}", title, category)
 			}
 		]
 	});
