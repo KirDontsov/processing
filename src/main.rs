@@ -323,20 +323,6 @@ async fn handle_ai_processing_task(
 	// Execute the appropriate processing based on task type using the original functions
 	let processing_result: Result<String, Box<dyn std::error::Error + Send + Sync>> =
 		match task.request_data.processing_type.as_str() {
-			"description" => {
-				match crate::oai_processing::ai_description_processing::process_description_with_ai(
-					pool.clone(),
-					&task,
-				)
-				.await
-				{
-					Ok(beautified_description) => Ok(beautified_description),
-					Err(e) => Err(Box::new(std::io::Error::new(
-						std::io::ErrorKind::Other,
-						format!("{}", e),
-					)) as Box<dyn std::error::Error + Send + Sync>),
-				}
-			}
 			"reviews" => {
 				match oai_reviews_processing(pool.clone()).await {
 					Ok(_) => Ok("".to_string()), // For other types, return empty string
@@ -364,14 +350,42 @@ async fn handle_ai_processing_task(
 					)) as Box<dyn std::error::Error + Send + Sync>),
 				}
 			}
+			// "title" => {
+			// 	match crate::oai_processing::ai_title_processing::process_title_with_ai(
+			// 		pool.clone(),
+			// 		&task,
+			// 	)
+			// 	.await
+			// 	{
+			// 		Ok(beautified_title) => Ok(beautified_title),
+			// 		Err(e) => Err(Box::new(std::io::Error::new(
+			// 			std::io::ErrorKind::Other,
+			// 			format!("{}", e),
+			// 		)) as Box<dyn std::error::Error + Send + Sync>),
+			// 	}
+			// }
+			"description" => {
+				match crate::oai_processing::qwen_cli_processing::process_with_qwen_cli(
+					pool.clone(),
+					&task,
+				)
+					.await
+				{
+					Ok(beautified_description) => Ok(beautified_description),
+					Err(e) => Err(Box::new(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						format!("{}", e),
+					)) as Box<dyn std::error::Error + Send + Sync>),
+				}
+			}
 			"title" => {
-				match crate::oai_processing::ai_title_processing::process_title_with_ai(
+				match crate::oai_processing::qwen_cli_processing::process_with_qwen_cli(
 					pool.clone(),
 					&task,
 				)
 				.await
 				{
-					Ok(beautified_title) => Ok(beautified_title),
+					Ok(result) => Ok(result),
 					Err(e) => Err(Box::new(std::io::Error::new(
 						std::io::ErrorKind::Other,
 						format!("{}", e),
