@@ -7,13 +7,14 @@ mod services; // Add services module
 mod utils;
 
 use crate::models::rabbitmq::{AIProcessingResult, AIProcessingTask, AIRequestData};
+use crate::oai_processing::oai_description_processing::oai_description_processing;
+use crate::oai_processing::oai_title_processing::oai_title_processing;
 use crate::services::rabbitmq_consumer::RabbitMQConsumer;
 use crate::services::rabbitmq_producer::RabbitMQProducer;
 use config::Config;
 use dotenv::dotenv;
 use oai_processing::{
-	oai_description_processing, oai_pages_processing, oai_reviews_processing,
-	oai_reviews_rewrite_processing, oai_title_processing,
+	oai_pages_processing, oai_reviews_processing, oai_reviews_rewrite_processing,
 };
 use processing::{
 	images_processing, pages_sitemap_processing, reviews_count_processing, sitemap_processing,
@@ -69,6 +70,26 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
 			// Handle each processing type with appropriate error conversion
 			match processing_type.as_str() {
+				"title" => {
+					oai_title_processing(pool.clone()).await.map_err(|e| {
+						Box::new(std::io::Error::new(
+							std::io::ErrorKind::Other,
+							format!("{}", e),
+						)) as Box<dyn std::error::Error + Send + Sync>
+					})?;
+				}
+				"description" => {
+					match oai_description_processing(pool.clone()).await {
+						Ok(_) => {}
+						Err(e) => {
+							// Convert the Send + Sync error back to a standard error for the direct mode
+							return Err(Box::new(std::io::Error::new(
+								std::io::ErrorKind::Other,
+								format!("{}", e),
+							)) as Box<dyn std::error::Error + Send + Sync>);
+						}
+					}
+				}
 				"images" => {
 					images_processing().await.map_err(|e| {
 						Box::new(std::io::Error::new(
@@ -100,18 +121,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 							format!("{}", e),
 						)) as Box<dyn std::error::Error + Send + Sync>
 					})?;
-				}
-				"description" => {
-					match oai_description_processing(pool.clone()).await {
-						Ok(_) => {}
-						Err(e) => {
-							// Convert the Send + Sync error back to a standard error for the direct mode
-							return Err(Box::new(std::io::Error::new(
-								std::io::ErrorKind::Other,
-								format!("{}", e),
-							)) as Box<dyn std::error::Error + Send + Sync>);
-						}
-					}
 				}
 				"reviews" => {
 					match oai_reviews_processing(pool.clone()).await {
@@ -157,14 +166,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 						)) as Box<dyn std::error::Error + Send + Sync>
 					})?;
 				}
-				"title" => {
-					title_processing(pool.clone()).await.map_err(|e| {
-						Box::new(std::io::Error::new(
-							std::io::ErrorKind::Other,
-							format!("{}", e),
-						)) as Box<dyn std::error::Error + Send + Sync>
-					})?;
-				}
+
 				_ => println!("error in env (no such handler)!"),
 			}
 		}
@@ -323,49 +325,8 @@ async fn handle_ai_processing_task(
 	// Execute the appropriate processing based on task type using the original functions
 	let processing_result: Result<String, Box<dyn std::error::Error + Send + Sync>> =
 		match task.request_data.processing_type.as_str() {
-			"reviews" => {
-				match oai_reviews_processing(pool.clone()).await {
-					Ok(_) => Ok("".to_string()), // For other types, return empty string
-					Err(e) => Err(Box::new(std::io::Error::new(
-						std::io::ErrorKind::Other,
-						format!("{}", e),
-					)) as Box<dyn std::error::Error + Send + Sync>),
-				}
-			}
-			"reviews_rewrite" => {
-				match oai_reviews_rewrite_processing(pool.clone()).await {
-					Ok(_) => Ok("".to_string()), // For other types, return empty string
-					Err(e) => Err(Box::new(std::io::Error::new(
-						std::io::ErrorKind::Other,
-						format!("{}", e),
-					)) as Box<dyn std::error::Error + Send + Sync>),
-				}
-			}
-			"pages" => {
-				match oai_pages_processing(pool.clone()).await {
-					Ok(_) => Ok("".to_string()), // For other types, return empty string
-					Err(e) => Err(Box::new(std::io::Error::new(
-						std::io::ErrorKind::Other,
-						format!("{}", e),
-					)) as Box<dyn std::error::Error + Send + Sync>),
-				}
-			}
-			// "title" => {
-			// 	match crate::oai_processing::ai_title_processing::process_title_with_ai(
-			// 		pool.clone(),
-			// 		&task,
-			// 	)
-			// 	.await
-			// 	{
-			// 		Ok(beautified_title) => Ok(beautified_title),
-			// 		Err(e) => Err(Box::new(std::io::Error::new(
-			// 			std::io::ErrorKind::Other,
-			// 			format!("{}", e),
-			// 		)) as Box<dyn std::error::Error + Send + Sync>),
-			// 	}
-			// }
 			"description" => {
-				match crate::oai_processing::qwen_cli_processing::process_with_qwen_cli(
+				match crate::oai_processing::oai_description_processing::process_description_with_qwen_cli(
 					pool.clone(),
 					&task,
 				)
@@ -379,11 +340,11 @@ async fn handle_ai_processing_task(
 				}
 			}
 			"title" => {
-				match crate::oai_processing::qwen_cli_processing::process_with_qwen_cli(
+				match crate::oai_processing::oai_title_processing::process_title_with_qwen_cli(
 					pool.clone(),
 					&task,
 				)
-				.await
+					.await
 				{
 					Ok(result) => Ok(result),
 					Err(e) => Err(Box::new(std::io::Error::new(
@@ -392,7 +353,6 @@ async fn handle_ai_processing_task(
 					)) as Box<dyn std::error::Error + Send + Sync>),
 				}
 			}
-			// Add other processing types as needed
 			_ => {
 				eprintln!(
 					"❌ Unsupported processing type: {}",

@@ -15,19 +15,24 @@ pub struct QwenCliProcessingMessage {
 	pub created_ts: chrono::DateTime<chrono::Utc>,
 }
 
-pub async fn process_description_with_qwen_cli(
+pub async fn process_title_with_qwen_cli(
 	pool: Pool<Postgres>,
 	task: &AIProcessingTask,
 ) -> Result<String, Box<dyn Error + Send + Sync>> {
 	// Extract the input text and category from the task parameters
 	let input_text = task
-        .request_data
-        .parameters
-        .get("input_text")
-        .and_then(|v| v.as_str())
-        .or_else(|| task.request_data.parameters.get("description").and_then(|v| v.as_str()))
-        .ok_or("Description not found in task parameters. Expected 'input_text' or 'description' field.")?
-        .to_string();
+		.request_data
+		.parameters
+		.get("input_text")
+		.and_then(|v| v.as_str())
+		.or_else(|| {
+			task.request_data
+				.parameters
+				.get("title")
+				.and_then(|v| v.as_str())
+		})
+		.ok_or("Title not found in task parameters. Expected 'input_text' or 'title' field.")?
+		.to_string();
 
 	let category = task
 		.request_data
@@ -37,15 +42,15 @@ pub async fn process_description_with_qwen_cli(
 		.unwrap_or("General"); // Default to "General" if category is not provided
 
 	println!(
-		"Processing description with qwen-cli: {}, category: {}",
+		"Processing title with qwen-cli: {}, category: {}",
 		input_text, category
 	);
 
 	// Prepare a contextual prompt for the qwen-cli command
 	// Simple and direct prompt to ensure only the requested content is returned
-	let system_prompt = "Ты - инструмент генерации описаний и профессиональный маркетолог. Отвечай ТОЛЬКО текстом, который нужно скопировать и вставить. НЕ добавляй никаких поясняющих слов, комментариев, мыслей или системных сообщений. НЕ говори 'Ответ:', 'Результат:' или что-либо подобное. Просто предоставь запрашиваемый контент.";
+	let system_prompt = "Ты - инструмент генерации заголовков и профессиональный маркетолог. Отвечай ТОЛЬКО текстом, который нужно скопировать и вставить. НЕ добавляй никаких поясняющих слов, комментариев, мыслей или системных сообщений. НЕ говори 'Ответ:', 'Результат:' или что-либо подобное. Просто предоставь запрашиваемый контент.";
 
-	let user_prompt = format!("Категория: {}. Задача перефразировать, улучшить и дополнить описание для объявления на доске объявлений авито: {}", category, input_text);
+	let user_prompt = format!("Категория: {}. Задача перефразировать и улучшить заголовок для объявления на доске объявлений авито: {}", category, input_text);
 
 	// Combine system and user prompts
 	let contextual_prompt = format!(
@@ -92,13 +97,13 @@ pub async fn process_description_with_qwen_cli(
 	})?;
 
 	// Print the result to terminal
-	println!("Input description: {}", input_text);
+	println!("Input title: {}", input_text);
 	println!("Qwen-cli result: {}", result);
 
 	Ok(result.trim().to_string())
 }
 
-pub async fn oai_description_processing(
+pub async fn oai_title_processing(
 	pool: Pool<Postgres>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
 	loop {
@@ -106,7 +111,7 @@ pub async fn oai_description_processing(
 		if needs_to_restart {
 			// This function is now a placeholder since the actual processing happens
 			// in the RabbitMQ consumer with a specific task
-			// The actual processing logic is in the process_description_with_qwen_cli function
+			// The actual processing logic is in the process_title_with_qwen_cli function
 			return Ok(());
 		}
 	}

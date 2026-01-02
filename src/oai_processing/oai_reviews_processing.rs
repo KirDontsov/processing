@@ -112,7 +112,7 @@ pub async fn oai_reviews_processing(
 			r#"SELECT * FROM oai_reviews WHERE firm_id = $1;"#,
 			&firm.firm_id
 		)
-	.fetch_one(&pool)
+		.fetch_one(&pool)
 		.await;
 
 		if oai_review.is_ok() {
