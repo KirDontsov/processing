@@ -228,8 +228,8 @@ impl RabbitMQProducer {
 			completed_at: Utc::now().to_rfc3339(),
 		};
 
-		// Use simple result.user_id pattern to match main microservice expectations
-		let routing_key = format!("result.{}", user_id);
+		// Use ai.result pattern to match what the main microservice is expecting
+		let routing_key = format!("ai.result.{}", user_id);
 
 		self.send_message(&result_message, &routing_key).await
 	}
@@ -253,7 +253,8 @@ impl RabbitMQProducer {
 			timestamp: Utc::now().to_rfc3339(),
 		};
 
-		let routing_key = format!("progress.{}", user_id);
+		// Use ai.progress pattern to match what the main microservice is expecting
+		let routing_key = format!("ai.progress.{}", user_id);
 
 		self.send_message(&progress_message, &routing_key).await
 	}

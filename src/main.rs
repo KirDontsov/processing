@@ -353,6 +353,20 @@ async fn handle_ai_processing_task(
 					)) as Box<dyn std::error::Error + Send + Sync>),
 				}
 			}
+			"keyword_extraction" => {
+				match crate::oai_processing::keyword_extraction_processing::process_keyword_extraction_with_qwen_cli(
+					pool.clone(),
+					&task,
+				)
+					.await
+				{
+					Ok(keywords) => Ok(keywords),
+					Err(e) => Err(Box::new(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						format!("{}", e),
+					)) as Box<dyn std::error::Error + Send + Sync>),
+				}
+			}
 			_ => {
 				eprintln!(
 					"❌ Unsupported processing type: {}",
@@ -376,6 +390,7 @@ async fn handle_ai_processing_task(
 				let result_data = match task.request_data.processing_type.as_str() {
 					"title" => json!({"beautified_title": result_value}),
 					"description" => json!({"beautified_description": result_value}),
+					"keyword_extraction" => json!({"keywords": result_value}),
 					_ => json!({"result": result_value}), // Default for other types
 				};
 
