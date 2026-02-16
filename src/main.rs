@@ -3,7 +3,7 @@ mod config;
 mod models;
 mod oai_processing;
 mod processing;
-mod services; // Add services module
+mod services;
 mod utils;
 
 use crate::models::rabbitmq::{AIProcessingResult, AIProcessingTask, AIRequestData};
@@ -29,6 +29,8 @@ use serde_json::json;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::env;
 use std::error::Error;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 
@@ -277,13 +279,15 @@ async fn handle_ai_processing_task(
 	let result_queue =
 		env::var("RABBITMQ_RESULT_QUEUE").unwrap_or_else(|_| "ai_processing_results".to_string());
 
-	let producer = match RabbitMQProducer::new(rabbitmq_url, result_queue).await {
-		Ok(p) => Some(p),
-		Err(e) => {
-			eprintln!("⚠️ Failed to create RabbitMQ producer: {}", e);
-			None
+	let producer: Arc<Mutex<Option<RabbitMQProducer>>> = Arc::new(Mutex::new(
+		match RabbitMQProducer::new(rabbitmq_url, result_queue).await {
+			Ok(p) => Some(p),
+			Err(e) => {
+				eprintln!("⚠️ Failed to create RabbitMQ producer: {}", e);
+				None
+			}
 		}
-	};
+	));
 
 	// Initialize database connection
 	let config = Config::init();
@@ -305,20 +309,22 @@ async fn handle_ai_processing_task(
 		}
 	};
 
-	// Send initial progress update
-	if let Some(ref producer) = producer {
-		if let Err(e) = producer
-			.send_progress_update(
-				task.task_id,
-				task.request_data.user_id,
-				Some(task.request_data.request_id),
-				0.0,
-				"in_progress",
-				"Task started",
-			)
-			.await
-		{
-			eprintln!("⚠️ Failed to send progress update: {}", e);
+	// Send initial progress update (skip for keyword_extraction)
+	if task.request_data.processing_type != "keyword_extraction" {
+		if let Some(ref prod) = *producer.lock().await {
+			if let Err(e) = prod
+				.send_progress_update(
+					task.task_id,
+					task.request_data.user_id,
+					Some(task.request_data.request_id),
+					0.0,
+					"in_progress",
+					"Task started",
+				)
+				.await
+			{
+				eprintln!("⚠️ Failed to send progress update: {}", e);
+			}
 		}
 	}
 
@@ -357,6 +363,7 @@ async fn handle_ai_processing_task(
 				match crate::oai_processing::keyword_extraction_processing::process_keyword_extraction_with_qwen_cli(
 					pool.clone(),
 					&task,
+					producer.clone(),
 				)
 					.await
 				{
@@ -382,19 +389,24 @@ async fn handle_ai_processing_task(
 			}
 		};
 
-	// Send final result
-	if let Some(ref producer) = producer {
+	// Send final result (except for keyword_extraction which sends its own results)
+	// Skip sending result for keyword_extraction as it sends its own results
+	if task.request_data.processing_type == "keyword_extraction" {
+		println!("✅ Keyword extraction task completed, results already sent");
+		return Ok(());
+	}
+
+	if let Some(ref prod) = *producer.lock().await {
 		match processing_result {
 			Ok(result_value) => {
 				// Send the appropriate result data based on processing type
 				let result_data = match task.request_data.processing_type.as_str() {
 					"title" => json!({"beautified_title": result_value}),
 					"description" => json!({"beautified_description": result_value}),
-					"keyword_extraction" => json!({"keywords": result_value}),
 					_ => json!({"result": result_value}), // Default for other types
 				};
 
-				if let Err(e) = producer
+				if let Err(e) = prod
 					.send_result(
 						task.task_id,
 						task.request_data.user_id,
@@ -409,7 +421,7 @@ async fn handle_ai_processing_task(
 				}
 			}
 			Err(e) => {
-				if let Err(e) = producer
+				if let Err(e) = prod
 					.send_result(
 						task.task_id,
 						task.request_data.user_id,
